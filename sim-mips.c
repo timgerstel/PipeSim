@@ -1,5 +1,5 @@
 // Author: Shikang Xu; ECE 353 TA
-Timothy Gerstel, Jennifer Feng, Jonathan A.
+//Timothy Gerstel, Jennifer Feng, Jonathan A.
 // List the full names of ALL group members at the top of your code.
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +21,8 @@ void WB();
 char *progScanner();
 char *regNumberConverter();
 void printAndWait();
+
+double ifUtil, idUtil, exUtil, memUtil, wbUtil;
 
 main (int argc, char *argv[]){
 	int sim_mode=0;//mode flag, 1 for single-cycle, 0 for batch
@@ -80,7 +82,25 @@ main (int argc, char *argv[]){
 		}
 	}
 	
-	//start your code from here
+	// Code by Timothy Gerstel, Jennifer Feng, and Jonathan A
+	char buffer[24];  //Longest possible instruction length
+	while(fgets(buffer, 24, input) != NULL){
+		printf("cycle: %d ",sim_cycle);
+		if(sim_mode==1){
+			for (i=1;i<REG_NUM;i++){
+				printf("%d  ",mips_reg[i]);
+			}
+		}
+		printf("%d\n",pgm_c);
+		pgm_c+=4;
+		sim_cycle+=1;
+		test_counter++;
+		printf("press ENTER to continue\n");
+		while(getchar() != '\n');
+		if(progScanner(buffer) == "haltSimulation"){
+			break;
+		}
+	}
 
 	if(sim_mode==0){
 		fprintf(output,"program name: %s\n",argv[5]);
@@ -102,26 +122,14 @@ main (int argc, char *argv[]){
 	return 0;
 }
 
-char *progScanner(char input[]){
-	
-}
-
-//output code 2: the following code will output the register 
-//value to screen at every cycle and wait for the ENTER key
-//to be pressed; this will make it proceed to the next cycle 
-void printAndWait(){
-	printf("cycle: %d ",sim_cycle);
-	if(sim_mode==1){
-		for (i=1;i<REG_NUM;i++){
-			printf("%d  ",mips_reg[i]);
+char *progScanner(char *instr){
+	int i, j=0; //Loop counters
+	char ret[22];
+	for(i = 0; instr[i] != '\0'; i++){
+		if(j < 22 && instr[i] != ','){
+			ret[j] = instr[i];
 		}
 	}
-	printf("%d\n",pgm_c);
-	pgm_c+=4;
-	sim_cycle+=1;
-	test_counter++;
-	printf("press ENTER to continue\n");
-	while(getchar() != '\n');
-
+	return ret;
 }
 
