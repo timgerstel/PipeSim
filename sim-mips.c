@@ -1,5 +1,5 @@
 // Author: Shikang Xu; ECE 353 TA
-
+Timothy Gerstel, Jennifer Feng, Jonathan A.
 // List the full names of ALL group members at the top of your code.
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +10,17 @@
 #define SINGLE 1
 #define BATCH 0
 #define REG_NUM 32
+
+//*** Stage functions
+void IF();
+void ID();
+void EX();
+void MEM();
+void WB();
+
+char *progScanner();
+char *regNumberConverter();
+void printAndWait();
 
 main (int argc, char *argv[]){
 	int sim_mode=0;//mode flag, 1 for single-cycle, 0 for batch
@@ -91,6 +102,10 @@ main (int argc, char *argv[]){
 	return 0;
 }
 
+char *progScanner(char input[]){
+	
+}
+
 //output code 2: the following code will output the register 
 //value to screen at every cycle and wait for the ENTER key
 //to be pressed; this will make it proceed to the next cycle 
@@ -109,3 +124,4 @@ void printAndWait(){
 	while(getchar() != '\n');
 
 }
+
