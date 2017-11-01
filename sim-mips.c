@@ -150,21 +150,34 @@ int main (int argc, char *argv[]){
 
 char *progScanner(char *instr){
 	int i, j=0; //Loop counters
+	int delCount = 0; //Delimiter counter
 	char buffer[22]; //Buffer
+	int whitespace = 0;
 	for(i = 0; instr[i] != '\0'; i++){
 		if(i == 0 && instr[i] =='#'){
 			printf("Comment detected\n");
 			return "comment";
 		} else {
+			if(instr[i] == ' ') whitespace++; else whitespace = 0;
+			if(instr[i] == '(') delCount++;
+			if(instr[i] == ')') delCount--;
 			if(instr[i] == '#') break;
 			if(j < 22 && instr[i] != ','){
 				buffer[j] = instr[i];
-				j++;
-				if(instr[i] == ' '&& instr[i - 1] == ' ') j--;
+				if(whitespace > 2){
+					buffer[j-1] = '\0';
+				} else 
+				if(whitespace < 2){
+					j++;
+				}
 			}
 		}
 	}
-	printf("%s", buffer);
+	if(delCount != 0){
+		printf("Delimiter mismatch");
+		return "haltSimulation";
+	}
+	printf("%s\n", buffer);
 	return buffer;
 }
 
