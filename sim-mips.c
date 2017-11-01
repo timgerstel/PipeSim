@@ -11,6 +11,28 @@
 #define BATCH 0
 #define REG_NUM 32
 
+struct {
+	int address;
+	union{
+		unsigned int func : 6,
+		shamt : 5,
+		rd : 5,
+		rt : 5,
+		rs : 5,
+		op : 6;
+	} r;
+	union{
+		unsigned int imm : 16,
+		rt : 5,
+		rs : 5,
+		op: 6;
+	} i;
+	union{
+		unsigned int addr : 26,
+		op: 6;
+	} j;
+} Instr;
+
 //*** Stage functions
 void IF();
 void ID();
@@ -24,7 +46,7 @@ void printAndWait();
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
 
-main (int argc, char *argv[]){
+int main (int argc, char *argv[]){
 	int sim_mode=0;//mode flag, 1 for single-cycle, 0 for batch
 	int c,m,n;
 	int i;//for loop counter
@@ -83,23 +105,27 @@ main (int argc, char *argv[]){
 	}
 	
 	// Code by Timothy Gerstel, Jennifer Feng, and Jonathan A
-	char buffer[24];  //Longest possible instruction length
-	while(fgets(buffer, 24, input) != NULL){
-		printf("cycle: %d ",sim_cycle);
-		if(sim_mode==1){
-			for (i=1;i<REG_NUM;i++){
-				printf("%d  ",mips_reg[i]);
-			}
+	char buffer[128];  //Longest possible instruction length
+	while(fgets(buffer, 128, input) != NULL){
+		char *line = progScanner(buffer);
+		if(strcmp(line, "haltSimulation") == 0){
+			printf("HALTING\n");
+			break;
 		}
-		printf("%d\n",pgm_c);
+		if(strcmp(line, "comment") != 0){
+			printf("cycle: %ld ",sim_cycle);
+			if(sim_mode==1){
+				for (i=1;i<REG_NUM;i++){
+					printf("%ld  ",mips_reg[i]);
+				}
+			}
+			printf("%ld\n",pgm_c);
+			printf("press ENTER to continue\n");
+			while(getchar() != '\n');
+		}
 		pgm_c+=4;
 		sim_cycle+=1;
 		test_counter++;
-		printf("press ENTER to continue\n");
-		while(getchar() != '\n');
-		if(progScanner(buffer) == "haltSimulation"){
-			break;
-		}
 	}
 
 	if(sim_mode==0){
@@ -111,9 +137,9 @@ main (int argc, char *argv[]){
 		
 		fprintf(output,"register values ");
 		for (i=1;i<REG_NUM;i++){
-			fprintf(output,"%d  ",mips_reg[i]);
+			fprintf(output,"%ld  ",mips_reg[i]);
 		}
-		fprintf(output,"%d\n",pgm_c);
+		fprintf(output,"%ld\n",pgm_c);
 	
 	}
 	//close input and output files at the end of the simulation
@@ -124,12 +150,22 @@ main (int argc, char *argv[]){
 
 char *progScanner(char *instr){
 	int i, j=0; //Loop counters
-	char ret[22];
+	char buffer[22]; //Buffer
 	for(i = 0; instr[i] != '\0'; i++){
-		if(j < 22 && instr[i] != ','){
-			ret[j] = instr[i];
+		if(i == 0 && instr[i] =='#'){
+			printf("Comment detected\n");
+			return "comment";
+		} else {
+			if(instr[i] == '#'){
+				break;
+			}
+			if(j < 22 && instr[i] != ','){
+				buffer[j] = instr[i];
+				j++;
+			}
 		}
 	}
-	return ret;
+	printf("%s", buffer);
+	return buffer;
 }
 
