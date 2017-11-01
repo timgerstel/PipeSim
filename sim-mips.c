@@ -109,7 +109,7 @@ int main (int argc, char *argv[]){
 	while(fgets(buffer, 128, input) != NULL){
 		char *line = progScanner(buffer);
 		if(strcmp(line, "haltSimulation") == 0){
-			printf("HALTING\n");
+			printf("\nHALTING\n");
 			break;
 		}
 		if(strcmp(line, "comment") != 0){
@@ -156,12 +156,11 @@ char *progScanner(char *instr){
 			printf("Comment detected\n");
 			return "comment";
 		} else {
-			if(instr[i] == '#'){
-				break;
-			}
+			if(instr[i] == '#') break;
 			if(j < 22 && instr[i] != ','){
 				buffer[j] = instr[i];
 				j++;
+				if(instr[i] == ' '&& instr[i - 1] == ' ') j--;
 			}
 		}
 	}
