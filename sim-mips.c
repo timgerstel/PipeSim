@@ -6,42 +6,42 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
+#include <ctype.h>
 //feel free to add here any additional library names you may need 
 #define SINGLE 1
 #define BATCH 0
 #define REG_NUM 32
+#define MEM 512
 
-struct {
-	int address;
-	union{
-		unsigned int func : 6,
-		shamt : 5,
-		rd : 5,
-		rt : 5,
-		rs : 5,
-		op : 6;
-	} r;
-	union{
-		unsigned int imm : 16,
-		rt : 5,
-		rs : 5,
-		op: 6;
-	} i;
-	union{
-		unsigned int addr : 26,
-		op: 6;
-	} j;
-} Instr;
+typedef enum {
+	add, addi, sub, mul, lw, sw, beq, haltSimulation
+} Opcode;
+
+struct Instr{
+	Opcode op;
+	int rs;
+	int rt;
+	int rd;
+	int imm;
+};
+
+struct Reg {
+	int value;
+};
+
+struct Reg regs[REG_NUM];
+struct Instr InstrMem[MEM];
+unsigned int dataMem[MEM];
 
 //*** Stage functions
 void IF();
 void ID();
 void EX();
-void MEM();
+void M();
 void WB();
 
-char *progScanner();
-char *regNumberConverter();
+char *progScanner(char *instr);
+int *regNumberConverter(char *scan);
 void printAndWait();
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
@@ -105,7 +105,11 @@ int main (int argc, char *argv[]){
 	}
 	
 	// Code by Timothy Gerstel, Jennifer Feng, and Jonathan A
-	char buffer[128];  //Longest possible instruction length
+	for(i = 0; i < REG_NUM; i++){
+		regs[i].value = 0;
+	}
+	//char buffer[128];  //Longest possible instruction length
+	char *buffer = malloc(sizeof(char) * 128);
 	while(fgets(buffer, 128, input) != NULL){
 		char *line = progScanner(buffer);
 		if(strcmp(line, "haltSimulation") == 0){
@@ -127,6 +131,7 @@ int main (int argc, char *argv[]){
 		sim_cycle+=1;
 		test_counter++;
 	}
+	free(buffer);
 
 	if(sim_mode==0){
 		fprintf(output,"program name: %s\n",argv[5]);
@@ -181,3 +186,32 @@ char *progScanner(char *instr){
 	return buffer;
 }
 
+int *regNumberConverter(char *scan){
+	int i, j, k=0; //Counter
+	char* regNames[] = {"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"};
+	char buffer[22];
+	char reg[4];
+	for(i = 0; scan[i] != '\0'; i++){
+		buffer[i] = scan[i];
+		if(scan[i] == '$'){
+			j = i + 1;
+			while(scan[j] != ' ' && scan[j] != '\0'){
+				reg[k] = buffer[j];
+				k++;
+				j++;
+			}
+		}
+		while(k > 0){
+			i++;
+			j = 0;
+			buffer[i + j] = reg[j];
+			j++;
+			k--;
+		}
+	}
+	return 0;
+}
+
+struct Instr *parser(char *line){
+
+}
