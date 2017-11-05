@@ -2,6 +2,7 @@
 //Timothy Gerstel, Jennifer Feng, Jonathan A.
 // List the full names of ALL group members at the top of your code.
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -14,7 +15,7 @@
 #define MEM 512
 
 typedef enum {
-	add, addi, sub, mul, lw, sw, beq, haltSimulation
+	add, addi, sub, mul, lw, sw, beq, comment, haltSimulation
 } Opcode;
 
 struct Instr{
@@ -27,6 +28,7 @@ struct Instr{
 
 struct Reg {
 	int value;
+	bool wait;
 };
 
 struct Reg regs[REG_NUM];
@@ -34,14 +36,16 @@ struct Instr InstrMem[MEM];
 unsigned int dataMem[MEM];
 
 //*** Stage functions
-void IF();
-void ID();
-void EX();
-void M();
-void WB();
+bool IF();
+bool ID();
+bool EX();
+bool M();
+bool WB();
 
-char *progScanner(char *instr);
-int *regNumberConverter(char *scan);
+char *progScanner(char*);
+char **regNumberConverter(char*);
+char *rncHelper(char*);
+struct Instr *parser(char**);
 void printAndWait();
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
@@ -106,27 +110,23 @@ int main (int argc, char *argv[]){
 	
 	// Code by Timothy Gerstel, Jennifer Feng, and Jonathan A
 	for(i = 0; i < REG_NUM; i++){
-		regs[i].value = 0;
+		regs[i].value = 0; //Initialize value to 0
+		regs[i].wait = false; //Initialize wait (to write) flag to false
 	}
-	//char buffer[128];  //Longest possible instruction length
 	char *buffer = malloc(sizeof(char) * 128);
 	while(fgets(buffer, 128, input) != NULL){
-		char *line = progScanner(buffer);
-		if(strcmp(line, "haltSimulation") == 0){
-			printf("\nHALTING\n");
-			break;
-		}
-		if(strcmp(line, "comment") != 0){
-			printf("cycle: %ld ",sim_cycle);
-			if(sim_mode==1){
-				for (i=1;i<REG_NUM;i++){
-					printf("%ld  ",mips_reg[i]);
-				}
+		char **data = regNumberConverter(progScanner(buffer));
+		struct Instr *ins = parser(data);
+
+		printf("cycle: %ld ",sim_cycle);
+		if(sim_mode==1){
+			for (i=1;i<REG_NUM;i++){
+				printf("%ld  ",mips_reg[i]);
 			}
-			printf("%ld\n",pgm_c);
-			printf("press ENTER to continue\n");
-			while(getchar() != '\n');
 		}
+		printf("%ld\n",pgm_c);
+		printf("press ENTER to continue\n");
+		while(getchar() != '\n');
 		pgm_c+=4;
 		sim_cycle+=1;
 		test_counter++;
@@ -155,12 +155,14 @@ int main (int argc, char *argv[]){
 
 char *progScanner(char *instr){
 	int i, j=0; //Loop counters
-	int delCount = 0; //Delimiter counter
-	char buffer[22]; //Buffer
-	int whitespace = 0;
+	int delCount = 0, whitespace = 0; //Misc counters
+	char buffer[32]; //Buffer
+	if(strcmp(instr, "haltSimulation") == 0){
+		printf("HALTING\n");
+		exit(0);
+	}
 	for(i = 0; instr[i] != '\0'; i++){
 		if(i == 0 && instr[i] =='#'){
-			printf("Comment detected\n");
 			return "comment";
 		} else {
 			if(instr[i] == ' ') whitespace++; else whitespace = 0;
@@ -180,38 +182,51 @@ char *progScanner(char *instr){
 	}
 	if(delCount != 0){
 		printf("Delimiter mismatch");
-		return "haltSimulation";
+		exit(0);
 	}
-	printf("%s\n", buffer);
+	//printf("%s\n", buffer);
 	return buffer;
 }
 
-int *regNumberConverter(char *scan){
-	int i, j, k=0; //Counter
-	char* regNames[] = {"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"};
-	char buffer[22];
-	char reg[4];
-	for(i = 0; scan[i] != '\0'; i++){
-		buffer[i] = scan[i];
-		if(scan[i] == '$'){
-			j = i + 1;
-			while(scan[j] != ' ' && scan[j] != '\0'){
-				reg[k] = buffer[j];
-				k++;
-				j++;
+char **regNumberConverter(char *line){
+	char *cpy = malloc(sizeof(char) * 32);
+	char *buffer[5];
+	strncpy(cpy, line, 32);
+	printf("%s\n", cpy);
+	if(strcmp(cpy, "comment") == 0){
+		buffer[0] = cpy;
+	} else {
+		int i = 0;
+		char *tok[5];
+		tok[0] = strtok(cpy, " ()");
+		while(tok[i] != NULL && i < 5){
+			//printf("%s\n", tok[i]);
+			if(tok[i][0] == '$'){
+				buffer[i] = rncHelper(tok[i] + 1);
+			} else {
+				buffer[i] = tok[i];
 			}
-		}
-		while(k > 0){
-			i++;
-			j = 0;
-			buffer[i + j] = reg[j];
-			j++;
-			k--;
+			tok[++i] = strtok(NULL, " ()");
 		}
 	}
-	return 0;
+	return buffer;
 }
 
-struct Instr *parser(char *line){
+char *rncHelper(char *token){
+	printf("rncHelper() arg: %s\n", token);
+	int i, j = 1;
+	char convert[4];
+	char* regNames[] = {"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"};
+	for(i = 0; i < 32; i++){
+		if(strcmp(regNames[i], token) == 0){
+			snprintf(convert, sizeof(convert), "$%d", i);
+			break;
+		}
+	}
+	printf("rncHelper() out: %s\n", convert);
+	return convert;
+}
+
+struct Instr *parser(char **data){
 
 }
