@@ -15,7 +15,7 @@
 #define MEM 512
 
 typedef enum {
-	add, addi, sub, mul, lw, sw, beq, comment, haltSimulation
+	add, addi, sub, mul, beq, lw, sw, comment
 } Opcode;
 
 struct Instr{
@@ -42,9 +42,9 @@ bool EX();
 bool M();
 bool WB();
 
-char *progScanner(char*);
-char **regNumberConverter(char*);
-char *rncHelper(char*);
+char* progScanner(char*);
+char** regNumberConverter(char*);
+char* rncHelper(char*);
 struct Instr *parser(char**);
 void printAndWait();
 
@@ -116,7 +116,7 @@ int main (int argc, char *argv[]){
 	char *buffer = malloc(sizeof(char) * 128);
 	while(fgets(buffer, 128, input) != NULL){
 		char **data = regNumberConverter(progScanner(buffer));
-		struct Instr *ins = parser(data);
+		//struct Instr *ins = parser(data);
 
 		printf("cycle: %ld ",sim_cycle);
 		if(sim_mode==1){
@@ -153,7 +153,7 @@ int main (int argc, char *argv[]){
 	return 0;
 }
 
-char *progScanner(char *instr){
+char* progScanner(char *instr){
 	int i, j=0; //Loop counters
 	int delCount = 0, whitespace = 0; //Misc counters
 	char buffer[32]; //Buffer
@@ -188,38 +188,48 @@ char *progScanner(char *instr){
 	return buffer;
 }
 
-char **regNumberConverter(char *line){
+char** regNumberConverter(char* line){
+	int i = 0;
 	char *cpy = malloc(sizeof(char) * 32);
 	char *buffer[5];
 	strncpy(cpy, line, 32);
 	printf("%s\n", cpy);
 	if(strcmp(cpy, "comment") == 0){
-		buffer[0] = cpy;
+		printf("regNumberConverter(): Comment detected\n");
+		buffer[0] = "comment";
+		return buffer;
 	} else {
-		int i = 0;
-		char *tok[5];
-		tok[0] = strtok(cpy, " ()");
-		while(tok[i] != NULL && i < 5){
-			//printf("%s\n", tok[i]);
-			if(tok[i][0] == '$'){
-				buffer[i] = rncHelper(tok[i] + 1);
-			} else {
-				buffer[i] = tok[i];
+		buffer[0] = strtok(cpy, " ()");
+		while(buffer[i] != NULL && i < 5){
+			//char *token = buffer[i];
+			printf("rNC(): Previous element: %s\n", buffer[i]);
+			if(buffer[i][0] == '$'){
+				char* replaced = rncHelper(buffer[i] + 1);
+				puts(replaced);
+				//printf("rNC(): Replacement: %s\n", replaced);
+				//buffer[i] = rncHelper(buffer[i] + 1);
+				strcpy(buffer[i], replaced);
+				printf("rNC(): Current element: %s\n", buffer[i]);
 			}
-			tok[++i] = strtok(NULL, " ()");
+			buffer[++i] = strtok(NULL, " ()");
 		}
 	}
+	printf("rNC(): Buffer:\n");
+	for(i = 0; i < 5; i++){
+		printf("%d\t%s\n", i, buffer[i]);
+	}
+	free(cpy);
 	return buffer;
 }
 
-char *rncHelper(char *token){
+char* rncHelper(char *token){
 	printf("rncHelper() arg: %s\n", token);
-	int i, j = 1;
-	char convert[4];
+	int i;
+	char convert[6];
 	char* regNames[] = {"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"};
 	for(i = 0; i < 32; i++){
 		if(strcmp(regNames[i], token) == 0){
-			snprintf(convert, sizeof(convert), "$%d", i);
+			snprintf(convert, sizeof(convert), "$%d%c", i, '\0');
 			break;
 		}
 	}
@@ -228,5 +238,13 @@ char *rncHelper(char *token){
 }
 
 struct Instr *parser(char **data){
-
+	int i;
+	struct Instr *ret;
+	struct Instr *parsed = malloc(sizeof(struct Instr));
+	for(i = 0; data[i] != NULL; i++){
+		char* line = data[i];
+		printf("Data %d: %s\n", i, line);
+	}
+	free(parsed);
+	return ret;
 }
