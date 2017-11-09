@@ -169,7 +169,7 @@ char* progScanner(char *instr){
 			if(instr[i] == '(') delCount++;
 			if(instr[i] == ')') delCount--;
 			if(instr[i] == '#') break;
-			if(j < 22 && instr[i] != ','){
+			if(j < 32 && instr[i] != ','){
 				buffer[j] = instr[i];
 				if(whitespace > 2){
 					buffer[j-1] = '\0';
@@ -191,7 +191,7 @@ char* progScanner(char *instr){
 char** regNumberConverter(char* line){
 	int i = 0;
 	char *cpy = malloc(sizeof(char) * 32);
-	char *buffer[5];
+	char *buffer[6];
 	strncpy(cpy, line, 32);
 	printf("%s\n", cpy);
 	if(strcmp(cpy, "comment") == 0){
@@ -244,6 +244,7 @@ struct Instr *parser(char **data){
 	for(i = 0; data[i] != NULL; i++){
 		char* line = data[i];
 		printf("Data %d: %s\n", i, line);
+
 	}
 	free(parsed);
 	return ret;
