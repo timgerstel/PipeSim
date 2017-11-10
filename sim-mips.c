@@ -14,6 +14,28 @@
 #define REG_NUM 32
 #define MEM 512
 
+static char* regNames[] = {
+	"zero",
+	"at",
+	"v0", "v1",
+	"a0", "a1", "a2", "a3",
+	"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+	"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
+	"t8", "t9",
+	"k0", "k1",
+	"gp", "sp", "fp", "ra"
+};
+
+static char* opNames[]= {
+	"add", "addi",
+	"sub",
+	"mul",
+	"beq",
+	"lw",
+	"sw",
+	"comment"
+};
+
 typedef enum {
 	add, addi, sub, mul, beq, lw, sw, comment
 } Opcode;
@@ -47,6 +69,7 @@ char** regNumberConverter(char*);
 char* rncHelper(char*);
 struct Instr *parser(char**);
 void printAndWait();
+void test(char**);
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
 
@@ -115,9 +138,14 @@ int main (int argc, char *argv[]){
 	}
 	char *buffer = malloc(sizeof(char) * 128);
 	while(fgets(buffer, 128, input) != NULL){
-		char **data = regNumberConverter(progScanner(buffer));
+		char* line = progScanner(buffer);
+		//puts("SUCCESS: Scan line");
+		char** data = regNumberConverter(line);
+		//test(data);
 		//struct Instr *ins = parser(data);
-
+		//puts("SUCCESS: Generate data array");
+		//struct Instr *ins = parser(data);
+		//free(line);
 		printf("cycle: %ld ",sim_cycle);
 		if(sim_mode==1){
 			for (i=1;i<REG_NUM;i++){
@@ -130,6 +158,8 @@ int main (int argc, char *argv[]){
 		pgm_c+=4;
 		sim_cycle+=1;
 		test_counter++;
+		free(data);
+		//free(ins);
 	}
 	free(buffer);
 
@@ -156,14 +186,14 @@ int main (int argc, char *argv[]){
 char* progScanner(char *instr){
 	int i, j=0; //Loop counters
 	int delCount = 0, whitespace = 0; //Misc counters
-	char buffer[32]; //Buffer
+	char* buffer = malloc(sizeof(char) * 32); //Buffer
 	if(strcmp(instr, "haltSimulation") == 0){
 		printf("HALTING\n");
 		exit(0);
 	}
 	for(i = 0; instr[i] != '\0'; i++){
 		if(i == 0 && instr[i] =='#'){
-			return "comment";
+			return "comment\0";
 		} else {
 			if(instr[i] == ' ') whitespace++; else whitespace = 0;
 			if(instr[i] == '(') delCount++;
@@ -189,63 +219,211 @@ char* progScanner(char *instr){
 }
 
 char** regNumberConverter(char* line){
-	int i = 0;
-	char *cpy = malloc(sizeof(char) * 32);
-	char *buffer[6];
-	strncpy(cpy, line, 32);
-	printf("%s\n", cpy);
-	if(strcmp(cpy, "comment") == 0){
-		printf("regNumberConverter(): Comment detected\n");
-		buffer[0] = "comment";
+	int i;
+	char** buffer = (char**) malloc(sizeof(char*) * 6);
+	for(i = 0; i < 6; i++){
+		buffer[i] = (char*) malloc(sizeof(char) * 8);
+	}
+	printf("rNC(): %s\n", line);
+	if(strcmp(line, "comment") == 0){
+		//printf("rNC(): Comment detected\n");
+		strcpy(buffer[0], "comment");
 		return buffer;
 	} else {
-		buffer[0] = strtok(cpy, " ()");
-		while(buffer[i] != NULL && i < 5){
+		i = 0;
+		buffer[0] = strtok(line, " ()");
+		while(buffer[i] != NULL && i < 6){
 			//char *token = buffer[i];
-			printf("rNC(): Previous element: %s\n", buffer[i]);
 			if(buffer[i][0] == '$'){
+				//printf("rNC(): Previous element: %s\n", buffer[i]);
+				char* reg = buffer[i] + 1;
 				char* replaced = rncHelper(buffer[i] + 1);
-				puts(replaced);
+				//puts(replaced);
 				//printf("rNC(): Replacement: %s\n", replaced);
 				//buffer[i] = rncHelper(buffer[i] + 1);
-				strcpy(buffer[i], replaced);
-				printf("rNC(): Current element: %s\n", buffer[i]);
+				buffer[i] = replaced;
+				//printf("rNC(): Current element: %s\n", buffer[i]);
 			}
 			buffer[++i] = strtok(NULL, " ()");
 		}
 	}
 	printf("rNC(): Buffer:\n");
-	for(i = 0; i < 5; i++){
+	for(i = 0; buffer[i] != NULL && i < 6; i++){
 		printf("%d\t%s\n", i, buffer[i]);
 	}
-	free(cpy);
 	return buffer;
 }
 
 char* rncHelper(char *token){
-	printf("rncHelper() arg: %s\n", token);
-	int i;
-	char convert[6];
-	char* regNames[] = {"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"};
-	for(i = 0; i < 32; i++){
-		if(strcmp(regNames[i], token) == 0){
-			snprintf(convert, sizeof(convert), "$%d%c", i, '\0');
-			break;
-		}
+	//printf("rncHelper() arg: %s\n", token);
+	int i, j;
+	char* convert = malloc(sizeof(char) * 6);
+	char* cpy = malloc(1 + strlen(token));
+	for(i = 0; i < strlen(token); i++){
+		cpy[i] = token[i];
+	}
+	cpy[i] = '\0';
+	//this is quarks fault not mine, go bark up the ECE departments tree if you want a for loop
+	if(!strcmp(cpy, "zero")){
+		snprintf(convert, sizeof(convert), "$%d%c", 0, '\0');
+	}
+	if(!strcmp(cpy, "at")){
+		snprintf(convert, sizeof(convert), "$%d%c", 1, '\0');
+	}
+	if(!strcmp(cpy, "v0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 2, '\0');
+	}
+	if(!strcmp(cpy, "v1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 3, '\0');
+	}
+	if(!strcmp(cpy, "a0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 4, '\0');
+	}
+	if(!strcmp(cpy, "a1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 5, '\0');
+	}
+	if(!strcmp(cpy, "a2")){
+		snprintf(convert, sizeof(convert), "$%d%c", 6, '\0');
+	}
+	if(!strcmp(cpy, "a3")){
+		snprintf(convert, sizeof(convert), "$%d%c", 7, '\0');
+	}
+	if(!strcmp(cpy, "t0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 8, '\0');
+	}
+	if(!strcmp(cpy, "t1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 9, '\0');
+	}
+	if(!strcmp(cpy, "t2")){
+		snprintf(convert, sizeof(convert), "$%d%c", 10, '\0');
+	}
+	if(!strcmp(cpy, "t3")){
+		snprintf(convert, sizeof(convert), "$%d%c", 11, '\0');
+	}
+	if(!strcmp(cpy, "t4")){
+		snprintf(convert, sizeof(convert), "$%d%c", 12, '\0');
+	}
+	if(!strcmp(cpy, "t5")){
+		snprintf(convert, sizeof(convert), "$%d%c", 13, '\0');
+	}
+	if(!strcmp(cpy, "t6")){
+		snprintf(convert, sizeof(convert), "$%d%c", 14, '\0');
+	}
+	if(!strcmp(cpy, "t7")){
+		snprintf(convert, sizeof(convert), "$%d%c", 15, '\0');
+	}
+	if(!strcmp(cpy, "s0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 16, '\0');
+	}
+	if(!strcmp(cpy, "s1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 17, '\0');
+	}
+	if(!strcmp(cpy, "s2")){
+		snprintf(convert, sizeof(convert), "$%d%c", 18, '\0');
+	}
+	if(!strcmp(cpy, "s3")){
+		snprintf(convert, sizeof(convert), "$%d%c", 19, '\0');
+	}
+	if(!strcmp(cpy, "s4")){
+		snprintf(convert, sizeof(convert), "$%d%c", 20, '\0');
+	}
+	if(!strcmp(cpy, "s5")){
+		snprintf(convert, sizeof(convert), "$%d%c", 21, '\0');
+	}
+	if(!strcmp(cpy, "s6")){
+		snprintf(convert, sizeof(convert), "$%d%c", 22, '\0');
+	}
+	if(!strcmp(cpy, "s7")){
+		snprintf(convert, sizeof(convert), "$%d%c", 23, '\0');
+	}
+	if(!strcmp(cpy, "t8")){
+		snprintf(convert, sizeof(convert), "$%d%c", 24, '\0');
+	}
+	if(!strcmp(cpy, "t9")){
+		snprintf(convert, sizeof(convert), "$%d%c", 25, '\0');
+	}
+	if(!strcmp(cpy, "k0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 26, '\0');
+	}
+	if(!strcmp(cpy, "k1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 27, '\0');
+	}
+	if(!strcmp(cpy, "gp")){
+		snprintf(convert, sizeof(convert), "$%d%c", 28, '\0');
+	}
+	if(!strcmp(cpy, "sp")){
+		snprintf(convert, sizeof(convert), "$%d%c", 29, '\0');
+	}
+	if(!strcmp(cpy, "fp")){
+		snprintf(convert, sizeof(convert), "$%d%c", 30, '\0');
+	}
+	if(!strcmp(cpy, "ra")){
+		snprintf(convert, sizeof(convert), "$%d%c", 31, '\0');
 	}
 	printf("rncHelper() out: %s\n", convert);
+	free(cpy);
 	return convert;
+}
+
+void test(char** data){
+	int i;
+	puts("Buffer read test:");
+	for(i = 0; i < 6; i++){
+		char *line = data[i];
+		if(line != NULL && strlen(line) > 0){
+			printf("%d\t%s\n", i, line);
+		}
+	}
 }
 
 struct Instr *parser(char **data){
 	int i;
-	struct Instr *ret;
 	struct Instr *parsed = malloc(sizeof(struct Instr));
-	for(i = 0; data[i] != NULL; i++){
-		char* line = data[i];
-		printf("Data %d: %s\n", i, line);
-
+	if(data[0] == NULL){
+		printf("parser(): Invalid data\n");
+		exit(0);
 	}
-	free(parsed);
-	return ret;
+	for(i = 0; i < sizeof(opNames)/sizeof(char*); i++){
+		if(strcmp(data[0], opNames[i]) == 0){
+			parsed->op = (Opcode)i;
+			printf("parser(): opCode: %u\n", parsed->op);
+			switch(parsed->op){
+				case 0 :
+				case 2 :
+				case 3 :
+					parsed->rd = atoi(data[1] + 1);
+					parsed->rs = atoi(data[2] + 1);
+					parsed->rt = atoi(data[3] + 1);
+					parsed->imm = 0;
+					break;
+				case 1 :
+					parsed->rt = atoi(data[1] + 1);
+					parsed->rs = atoi(data[2] + 1);
+					parsed->imm = atoi(data[3]);
+					parsed->rd = 0;
+				case 4 :
+				case 5 :
+				case 6 :
+					parsed->rt = atoi(data[1] + 1);
+					parsed->rs = atoi(data[3] + 1);
+					parsed->imm = atoi(data[2]);
+					parsed->rd = 0;
+					break;
+				case 7 :
+					parsed->rd = 0;
+					parsed->rs = 0;
+					parsed->rt = 0;
+					parsed->imm = 0;
+					break;
+				default :
+					break;
+			}
+			printf("parser(): rd: %d\n", parsed->rd);
+			printf("parser(): rs: %d\n", parsed->rs);
+			printf("parser(): rt: %d\n", parsed->rt);
+			printf("parser(): imm: %d\n", parsed->imm);
+		}
+	}
+	return parsed;
 }
+
