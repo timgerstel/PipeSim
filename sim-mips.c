@@ -14,7 +14,7 @@
 #define REG_NUM 32
 #define MEM 512
 
-const char* regNames[] = {
+static char* regNames[] = {
 	"zero",
 	"at",
 	"v0", "v1",
@@ -26,7 +26,7 @@ const char* regNames[] = {
 	"gp", "sp", "fp", "ra"
 };
 
-char* opNames[]= {
+static char* opNames[]= {
 	"add", "addi",
 	"sub",
 	"mul",
@@ -142,7 +142,7 @@ int main (int argc, char *argv[]){
 		//puts("SUCCESS: Scan line");
 		char** data = regNumberConverter(line);
 		//test(data);
-		struct Instr *ins = parser(data);
+		//struct Instr *ins = parser(data);
 		//puts("SUCCESS: Generate data array");
 		//struct Instr *ins = parser(data);
 		//free(line);
@@ -159,7 +159,7 @@ int main (int argc, char *argv[]){
 		sim_cycle+=1;
 		test_counter++;
 		free(data);
-		free(ins);
+		//free(ins);
 	}
 	free(buffer);
 
@@ -227,7 +227,7 @@ char** regNumberConverter(char* line){
 	printf("rNC(): %s\n", line);
 	if(strcmp(line, "comment") == 0){
 		//printf("rNC(): Comment detected\n");
-		strcpy(buffer[0], line);
+		strcpy(buffer[0], "comment");
 		return buffer;
 	} else {
 		i = 0;
@@ -236,12 +236,12 @@ char** regNumberConverter(char* line){
 			//char *token = buffer[i];
 			if(buffer[i][0] == '$'){
 				//printf("rNC(): Previous element: %s\n", buffer[i]);
+				char* reg = buffer[i] + 1;
 				char* replaced = rncHelper(buffer[i] + 1);
 				//puts(replaced);
 				//printf("rNC(): Replacement: %s\n", replaced);
 				//buffer[i] = rncHelper(buffer[i] + 1);
-				strcpy(buffer[i], replaced);
-				free(replaced);
+				buffer[i] = replaced;
 				//printf("rNC(): Current element: %s\n", buffer[i]);
 			}
 			buffer[++i] = strtok(NULL, " ()");
@@ -256,15 +256,112 @@ char** regNumberConverter(char* line){
 
 char* rncHelper(char *token){
 	//printf("rncHelper() arg: %s\n", token);
-	int i;
+	int i, j;
 	char* convert = malloc(sizeof(char) * 6);
-	for(i = 0; i < 32; i++){
-		if(strncmp(regNames[i], token, strlen(token)) == 0){
-			snprintf(convert, sizeof(convert), "$%d%c", i, '\0');
-			break;
-		}
+	char* cpy = malloc(1 + strlen(token));
+	for(i = 0; i < strlen(token); i++){
+		cpy[i] = token[i];
 	}
-	//printf("rncHelper() out: %s\n", convert);
+	cpy[i] = '\0';
+	//this is quarks fault not mine, go bark up the ECE departments tree if you want a for loop
+	if(!strcmp(cpy, "zero")){
+		snprintf(convert, sizeof(convert), "$%d%c", 0, '\0');
+	}
+	if(!strcmp(cpy, "at")){
+		snprintf(convert, sizeof(convert), "$%d%c", 1, '\0');
+	}
+	if(!strcmp(cpy, "v0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 2, '\0');
+	}
+	if(!strcmp(cpy, "v1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 3, '\0');
+	}
+	if(!strcmp(cpy, "a0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 4, '\0');
+	}
+	if(!strcmp(cpy, "a1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 5, '\0');
+	}
+	if(!strcmp(cpy, "a2")){
+		snprintf(convert, sizeof(convert), "$%d%c", 6, '\0');
+	}
+	if(!strcmp(cpy, "a3")){
+		snprintf(convert, sizeof(convert), "$%d%c", 7, '\0');
+	}
+	if(!strcmp(cpy, "t0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 8, '\0');
+	}
+	if(!strcmp(cpy, "t1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 9, '\0');
+	}
+	if(!strcmp(cpy, "t2")){
+		snprintf(convert, sizeof(convert), "$%d%c", 10, '\0');
+	}
+	if(!strcmp(cpy, "t3")){
+		snprintf(convert, sizeof(convert), "$%d%c", 11, '\0');
+	}
+	if(!strcmp(cpy, "t4")){
+		snprintf(convert, sizeof(convert), "$%d%c", 12, '\0');
+	}
+	if(!strcmp(cpy, "t5")){
+		snprintf(convert, sizeof(convert), "$%d%c", 13, '\0');
+	}
+	if(!strcmp(cpy, "t6")){
+		snprintf(convert, sizeof(convert), "$%d%c", 14, '\0');
+	}
+	if(!strcmp(cpy, "t7")){
+		snprintf(convert, sizeof(convert), "$%d%c", 15, '\0');
+	}
+	if(!strcmp(cpy, "s0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 16, '\0');
+	}
+	if(!strcmp(cpy, "s1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 17, '\0');
+	}
+	if(!strcmp(cpy, "s2")){
+		snprintf(convert, sizeof(convert), "$%d%c", 18, '\0');
+	}
+	if(!strcmp(cpy, "s3")){
+		snprintf(convert, sizeof(convert), "$%d%c", 19, '\0');
+	}
+	if(!strcmp(cpy, "s4")){
+		snprintf(convert, sizeof(convert), "$%d%c", 20, '\0');
+	}
+	if(!strcmp(cpy, "s5")){
+		snprintf(convert, sizeof(convert), "$%d%c", 21, '\0');
+	}
+	if(!strcmp(cpy, "s6")){
+		snprintf(convert, sizeof(convert), "$%d%c", 22, '\0');
+	}
+	if(!strcmp(cpy, "s7")){
+		snprintf(convert, sizeof(convert), "$%d%c", 23, '\0');
+	}
+	if(!strcmp(cpy, "t8")){
+		snprintf(convert, sizeof(convert), "$%d%c", 24, '\0');
+	}
+	if(!strcmp(cpy, "t9")){
+		snprintf(convert, sizeof(convert), "$%d%c", 25, '\0');
+	}
+	if(!strcmp(cpy, "k0")){
+		snprintf(convert, sizeof(convert), "$%d%c", 26, '\0');
+	}
+	if(!strcmp(cpy, "k1")){
+		snprintf(convert, sizeof(convert), "$%d%c", 27, '\0');
+	}
+	if(!strcmp(cpy, "gp")){
+		snprintf(convert, sizeof(convert), "$%d%c", 28, '\0');
+	}
+	if(!strcmp(cpy, "sp")){
+		snprintf(convert, sizeof(convert), "$%d%c", 29, '\0');
+	}
+	if(!strcmp(cpy, "fp")){
+		snprintf(convert, sizeof(convert), "$%d%c", 30, '\0');
+	}
+	if(!strcmp(cpy, "ra")){
+		snprintf(convert, sizeof(convert), "$%d%c", 31, '\0');
+	}
+	printf("rncHelper() out: %s\n", convert);
+	free(cpy);
 	return convert;
 }
 
@@ -317,7 +414,8 @@ struct Instr *parser(char **data){
 					parsed->rs = 0;
 					parsed->rt = 0;
 					parsed->imm = 0;
-				default:
+					break;
+				default :
 					break;
 			}
 			printf("parser(): rd: %d\n", parsed->rd);
@@ -328,3 +426,4 @@ struct Instr *parser(char **data){
 	}
 	return parsed;
 }
+
