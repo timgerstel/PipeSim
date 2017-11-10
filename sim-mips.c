@@ -25,7 +25,7 @@ static char* opNames[]= {
 };
 
 typedef enum {
-	add, addi, sub, mul, beq, lw, sw, comment
+	add=0, addi=0x8, sub=0, mul=0, beq=0X4, lw=0X23, sw=0X2B, comment=1
 } Opcode;
 
 struct Instr{
@@ -35,7 +35,19 @@ struct Instr{
 	int rd;
 	int imm;
 };
+// struct if_id{
 
+// }
+
+// struct id_ex{
+
+// }
+// struct ex_mem{
+
+// }
+// struct mem_wb{
+
+// }
 struct Reg {
 	int value;
 	bool wait;
@@ -58,6 +70,7 @@ char* rncHelper(char*);
 struct Instr *parser(char**);
 void printAndWait();
 void test(char**);
+int mystrcmp(char*,char*);
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
 
@@ -130,7 +143,7 @@ int main (int argc, char *argv[]){
 		//puts("SUCCESS: Scan line");
 		char** data = regNumberConverter(line);
 		//test(data);
-		//struct Instr *ins = parser(data);
+		struct Instr *ins = parser(data);
 		//puts("SUCCESS: Generate data array");
 		//struct Instr *ins = parser(data);
 		//free(line);
@@ -366,44 +379,46 @@ void test(char** data){
 
 struct Instr *parser(char **data){
 	int i;
+	int check =0;
 	struct Instr *parsed = malloc(sizeof(struct Instr));
 	if(data[0] == NULL){
 		printf("parser(): Invalid data\n");
 		exit(0);
 	}
+	Opcode opc=add;
 	for(i = 0; i < sizeof(opNames)/sizeof(char*); i++){
-		if(strcmp(data[0], opNames[i]) == 0){
-			parsed->op = (Opcode)i;
+		opc++;
+		if(mystrcmp(data[0], opNames[i]) == 0){
+			check = 1;
+			parsed->op = opc;// if deosnt work make opvalue array to go through
 			printf("parser(): opCode: %u\n", parsed->op);
 			switch(parsed->op){
 				case 0 :
-				case 2 :
-				case 3 :
-					parsed->rd = atoi(data[1] + 1);
-					parsed->rs = atoi(data[2] + 1);
-					parsed->rt = atoi(data[3] + 1);
+					if(data[1][0]=='$')parsed->rd = atoi(data[1] + 1);
+					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
+					if(data[3][0]=='$')parsed->rt = atoi(data[3] + 1);
 					parsed->imm = 0;
 					break;
-				case 1 :
-					parsed->rt = atoi(data[1] + 1);
-					parsed->rs = atoi(data[2] + 1);
+				case 0x8 :
+					if(data[1][0]=='$')parsed->rt = atoi(data[1] + 1);
+					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					parsed->imm = atoi(data[3]);
 					parsed->rd = 0;
-				case 4 :
-				case 5 :
-				case 6 :
-					parsed->rt = atoi(data[1] + 1);
-					parsed->rs = atoi(data[3] + 1);
+				case 0x4 :
+				case 0x23 :
+				case 0X2B :
+					if(data[1][0]=='$')parsed->rt = atoi(data[1] + 1);
+					if(data[3][0]=='$')parsed->rs = atoi(data[3] + 1);
 					parsed->imm = atoi(data[2]);
+					//if(isdigit(atoi(data[2][0])))
 					parsed->rd = 0;
 					break;
-				case 7 :
+				case 1 :
 					parsed->rd = 0;
 					parsed->rs = 0;
 					parsed->rt = 0;
 					parsed->imm = 0;
-					break;
-				default :
+				default:
 					break;
 			}
 			printf("parser(): rd: %d\n", parsed->rd);
@@ -411,7 +426,17 @@ struct Instr *parser(char **data){
 			printf("parser(): rt: %d\n", parsed->rt);
 			printf("parser(): imm: %d\n", parsed->imm);
 		}
+		
+// >>>>>>> e3be477fba19b177bfa0219583a208626c6a8de1
 	}
+	if(check==0)printf("parser(): illegal opCode: %s\n",data[0]);
 	return parsed;
 }
 
+int mystrcmp(char *str1,char *str2){
+  while (*str1 && *str1 == *str2) {
+    str1++;
+    str2++;
+  }
+  return *str1 - *str2;
+}
