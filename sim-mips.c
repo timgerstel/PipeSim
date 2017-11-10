@@ -23,7 +23,9 @@ static char* opNames[]= {
 	"sw",
 	"comment"
 };
-
+static int opVals[]={
+	0, 0x8, 0, 0, 0x4, 0x23, 0x2B,1
+};
 typedef enum {
 	add=0, addi=0x8, sub=0, mul=0, beq=0X4, lw=0X23, sw=0X2B, comment=1
 } Opcode;
@@ -387,10 +389,9 @@ struct Instr *parser(char **data){
 	}
 	Opcode opc=add;
 	for(i = 0; i < sizeof(opNames)/sizeof(char*); i++){
-		opc++;
 		if(mystrcmp(data[0], opNames[i]) == 0){
 			check = 1;
-			parsed->op = opc;// if deosnt work make opvalue array to go through
+			parsed->op = opVals[i];// if deosnt work make opvalue array to go through
 			printf("parser(): opCode: %u\n", parsed->op);
 			switch(parsed->op){
 				case 0 :
@@ -404,6 +405,7 @@ struct Instr *parser(char **data){
 					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					parsed->imm = atoi(data[3]);
 					parsed->rd = 0;
+					break;
 				case 0x4 :
 				case 0x23 :
 				case 0X2B :
@@ -426,7 +428,7 @@ struct Instr *parser(char **data){
 			printf("parser(): rt: %d\n", parsed->rt);
 			printf("parser(): imm: %d\n", parsed->imm);
 		}
-		
+		opc++;
 // >>>>>>> e3be477fba19b177bfa0219583a208626c6a8de1
 	}
 	if(check==0)printf("parser(): illegal opCode: %s\n",data[0]);
