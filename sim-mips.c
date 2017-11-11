@@ -26,8 +26,12 @@ static char* opNames[]= {
 static int opVals[]={
 	0, 0x8, 0, 0, 0x4, 0x23, 0x2B,1
 };
+
+static bool fetch=false; //a totally fetch variable
+
 typedef enum {
-	add=0, addi=0x8, sub=0, mul=0, beq=0X4, lw=0X23, sw=0X2B, comment=1
+	    add=0, addi=0x8, sub=0, mul=0, beq=0X4, lw=0X23, sw=0X2B, comment=1
+/*funct: 0x20	          0x22	0x18									*/	
 } Opcode;
 
 struct Instr{
@@ -36,35 +40,67 @@ struct Instr{
 	int rt;
 	int rd;
 	int imm;
+	char funct;
 };
-// struct if_id{
+ struct if_id_latch{
+ 	bool valid; //make sure its valid
+	char funct; // instruction corresponding to op
+	int rs; // instruction read 1
+	int rt; // instrction read 2
+	int rd; //destination reg
+	int imm; //immediate value
+	Opcode op; // opcode of what to carry out
+ };
 
-// }
+struct id_ex_latch{
+	Opcode op;
+	bool valid;
+	int r1; //read data 1
+	int r2; //read data 2
+	int rdi; //destination address 
+	int memAdd; // memory address use for lw&sw
+	char aluOp; //what alu will do
+	bool branch; //branch on aluO=0
+};
+struct ex_mem_latch{
+	bool valid;
+ 	int out; //alu output
+ 	bool read;//will it read if not write
+	bool branch; //if branching
+	int *wb; //where to write back
+	Opcode op;
+	int memAdd; // memory address use for lw&sw
+};
+struct mem_wb_latch{
+Opcode op;
+int memAdd; // memory address use for lw&sw
+int rd; // read data
+int rd2; //read data 2
+int *wb; //where to write back
+bool write;
+};
 
-// struct id_ex{
+struct if_id_latch *if_id;
+struct id_ex_latch *id_ex;
+struct ex_mem_latch *ex_mem;
+struct mem_wb_latch *mem_wb;
 
-// }
-// struct ex_mem{
-
-// }
-// struct mem_wb{
-
-// }
 struct Reg {
 	int value;
 	bool wait;
 };
 
-struct Reg regs[REG_NUM];
+int regs[REG_NUM];
+int program_counter=0;
 struct Instr InstrMem[MEM];
 unsigned int dataMem[MEM];
 
 //*** Stage functions
-bool IF();
-bool ID();
-bool EX();
-bool M();
-bool WB();
+void IF();
+void ID();
+void EX();
+void M();
+void WB();
 
 char* progScanner(char*);
 char** regNumberConverter(char*);
@@ -73,10 +109,19 @@ struct Instr *parser(char**);
 void printAndWait();
 void test(char**);
 int mystrcmp(char*,char*);
+char functGet(char**);
+void ifIdFlush();
+int alu(int,int,char);
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
 
 int main (int argc, char *argv[]){
+	printf("blue baby blue\n");
+	// LAT
+// struct if_id_latch *if_id = malloc(sizeof(struct if_id_latch));
+// struct id_ex_latch *id_ex = malloc(sizeof(struct id_ex_latch));
+// struct ex_mem_latch *ex_mem = malloc(sizeof(struct ex_mem_latch));
+// struct mem_wb_latch *mem_wb = malloc(sizeof(struct mem_wb_latch));
 	int sim_mode=0;//mode flag, 1 for single-cycle, 0 for batch
 	int c,m,n;
 	int i;//for loop counter
@@ -84,7 +129,7 @@ int main (int argc, char *argv[]){
 	long pgm_c=0;//program counter
 	long sim_cycle=0;//simulation cycle counter
 	//define your own counter for the usage of each pipeline stage here
-	
+	fflush(stdout);
 	int test_counter=0;
 	FILE *input=NULL;
 	FILE *output=NULL;
@@ -136,8 +181,8 @@ int main (int argc, char *argv[]){
 	
 	// Code by Timothy Gerstel, Jennifer Feng, and Jonathan A
 	for(i = 0; i < REG_NUM; i++){
-		regs[i].value = 0; //Initialize value to 0
-		regs[i].wait = false; //Initialize wait (to write) flag to false
+		regs[i] = 0; //Initialize value to 0
+	//	regs[i].wait = false; //Initialize wait (to write) flag to false
 	}
 	char *buffer = malloc(sizeof(char) * 128);
 	while(fgets(buffer, 128, input) != NULL){
@@ -157,6 +202,8 @@ int main (int argc, char *argv[]){
 		}
 		printf("%ld\n",pgm_c);
 		printf("press ENTER to continue\n");
+		fflush(stdout);
+
 		while(getchar() != '\n');
 		pgm_c+=4;
 		sim_cycle+=1;
@@ -399,12 +446,14 @@ struct Instr *parser(char **data){
 					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					if(data[3][0]=='$')parsed->rt = atoi(data[3] + 1);
 					parsed->imm = 0;
+					parsed->funct=functGet(data);
 					break;
 				case 0x8 :
 					if(data[1][0]=='$')parsed->rt = atoi(data[1] + 1);
 					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					parsed->imm = atoi(data[3]);
 					parsed->rd = 0;
+					parsed->funct =0;
 					break;
 				case 0x4 :
 				case 0x23 :
@@ -414,12 +463,14 @@ struct Instr *parser(char **data){
 					parsed->imm = atoi(data[2]);
 					//if(isdigit(atoi(data[2][0])))
 					parsed->rd = 0;
+					parsed->funct=0;
 					break;
 				case 1 :
 					parsed->rd = 0;
 					parsed->rs = 0;
 					parsed->rt = 0;
 					parsed->imm = 0;
+					parsed->funct = 0;
 				default:
 					break;
 			}
@@ -441,4 +492,129 @@ int mystrcmp(char *str1,char *str2){
     str2++;
   }
   return *str1 - *str2;
+}
+
+char functGet(char** opCode){
+	char **operation = opCode;
+	if(mystrcmp(operation[0],"add")==0) return '+';
+	if(mystrcmp(operation[0],"sub")==0) return '-';
+	if(mystrcmp(operation[0],"mult")==0) return '*';
+}
+ // struct if_id{
+	// int funct; // instruction corresponding to op
+	// int rs; // instruction read 1
+	// int rt; // instrction read 2
+	// int rd; //destination reg
+	// Opcode op; // opcode of what to carry out
+ // }
+
+void ifIdFlush(){ // flush/ reinitialize if_id after
+	if_id->valid=false;
+	if_id->funct=0;
+	if_id->rs=0;
+	if_id->rt=0;
+	if_id->rd=0;
+	if_id->op=1; // if op=comment same as no op
+}
+void IF(){ //get instruction save info to latch
+if(fetch==false){
+ 	struct Instr instruction=InstrMem[program_counter];
+ 	if_id->funct=instruction.funct;
+	if_id->rs=instruction.rs;
+	if_id->rt=instruction.rt;
+	if_id->rd=instruction.rd;
+	if_id->op=instruction.op;
+	if_id->imm=instruction.imm;
+	if_id->valid=true;
+	++program_counter;
+}
+}
+void ID(){
+if ((if_id->valid)!=true) IF();
+id_ex->op=if_id->op;
+if((if_id->op)==0x4){
+	ifIdFlush();
+	fetch=false;
+	id_ex->branch=true;	
+	id_ex->r1=(regs[if_id->rs]);
+	id_ex->r2=(regs[if_id->rt]);
+	id_ex->aluOp=0;
+	id_ex->rdi=0;
+	id_ex->memAdd=if_id->imm;
+}
+else id_ex->branch=false;
+
+if ((if_id->op)==0)
+{
+	id_ex->r1=(regs[if_id->rs]);
+	id_ex->r2=(regs[if_id->rt]);
+	id_ex->rdi=if_id->rd;
+	id_ex->aluOp=if_id->funct;
+	id_ex->memAdd=0;
+}
+else id_ex->r2=0;
+
+if((if_id->op)==0x8){
+	id_ex->r1=(regs[if_id->rs]);
+	id_ex->rdi=if_id->rt;
+	id_ex->aluOp='+';
+	id_ex->r2=if_id->imm;
+	id_ex->memAdd=0;
+}else{ 
+	id_ex->aluOp=0;
+	id_ex->r1=0;
+}
+
+if(((if_id->op)==0x23) ||((if_id->op)==0x2B)){
+	id_ex->rdi=if_id->rt;
+	id_ex->memAdd=(regs[if_id->rs])+(if_id->imm);
+}
+id_ex->valid=true;
+}
+
+
+void EX(){
+int aluOutput=alu((id_ex->r1),(id_ex->r2),(id_ex->aluOp));
+if ((id_ex->valid)!=true) ID();	
+	ex_mem->op=id_ex->op;
+if(id_ex->op=0x4){
+	ex_mem->branch=true;
+	ex_mem->read=0;
+	ex_mem->out=0;
+	ex_mem->memAdd=0;
+	if(aluOutput==0){
+		program_counter+=id_ex->memAdd;
+	}
+	return;
+}else ex_mem->branch=false;
+
+if( (id_ex->op=0) ||(id_ex->op=0x8)){
+	ex_mem->memAdd=id_ex->rdi;
+	ex_mem->out=aluOutput;
+	ex_mem->read=0;
+}
+
+if(id_ex->op=0x23){
+	ex_mem->memAdd=id_ex->memAdd;
+	ex_mem->out=id_ex->rdi;
+	ex_mem->read=0;
+}
+
+}
+
+
+int alu(int val1, int val2,char op){
+	int aluOut=0;
+switch(op){
+	case'+':{
+		aluOut=val1+val2;
+	}
+	case'-':{
+		aluOut=val1-val2;
+	}
+	case'*':{
+		aluOut=val1*val2;
+	}
+}
+return aluOut;
 }
