@@ -21,16 +21,12 @@ static char* opNames[]= {
 	"beq",
 	"lw",
 	"sw",
-	"comment"
+	"comment",
+	"haltSimulation"
 };
-static int opVals[]={
-	0, 0x8, 0, 0, 0x4, 0x23, 0x2B,1
-};
-
-static bool fetch=false; //a totally fetch variable
 
 typedef enum {
-	    add=0, addi=0x8, sub=0, mul=0, beq=0X4, lw=0X23, sw=0X2B, comment=1
+	    add=0, addi=1, sub=2, mul=3, beq=4, lw=5, sw=6, comment=7, haltSimulation=8
 /*funct: 0x20	          0x22	0x18									*/	
 } Opcode;
 
@@ -43,41 +39,32 @@ struct Instr{
 	char funct;
 };
  struct if_id_latch{
- 	bool valid; //make sure its valid
-	char funct; // instruction corresponding to op
-	int rs; // instruction read 1
-	int rt; // instrction read 2
-	int rd; //destination reg
-	int imm; //immediate value
-	Opcode op; // opcode of what to carry out
+	struct Instr ins;
+	int cycles;
  };
 
 struct id_ex_latch{
 	Opcode op;
-	bool valid;
 	int r1; //read data 1
 	int r2; //read data 2
-	int rdi; //destination address 
+	int r_write; //write register
+	int imm;
 	int memAdd; // memory address use for lw&sw
 	char aluOp; //what alu will do
 	bool branch; //branch on aluO=0
+	int cycles;
 };
 struct ex_mem_latch{
-	bool valid;
- 	int out; //alu output
- 	bool read;//will it read if not write
-	bool branch; //if branching
-	int *wb; //where to write back
 	Opcode op;
-	int memAdd; // memory address use for lw&sw
+ 	int rd; // memory address use for lw&sw
+ 	int out; //alu output
+	int cycles;
+	bool branch; //if branching
 };
 struct mem_wb_latch{
-Opcode op;
-int memAdd; // memory address use for lw&sw
-int rd; // read data
-int rd2; //read data 2
-int *wb; //where to write back
-bool write;
+	Opcode op;
+	int rd; // read data
+	int out;
 };
 
 struct if_id_latch *if_id;
@@ -90,17 +77,18 @@ struct Reg {
 	bool wait;
 };
 
-int regs[REG_NUM];
-int program_counter=0;
-struct Instr InstrMem[MEM];
+struct Reg mips_regs[REG_NUM];
+int pgm_c = 0;
+int c,m,n;
+struct Instr instrMem[MEM];
 unsigned int dataMem[MEM];
 
 //*** Stage functions
-void IF();
-void ID();
-void EX();
-void M();
-void WB();
+bool IF(struct if_id_latch*);
+bool ID(struct if_id_latch*, struct id_ex_latch*);
+bool EX(struct id_ex_latch*, struct ex_mem_latch*);
+bool M(struct ex_mem_latch*, struct mem_wb_latch*);
+bool WB(struct mem_wb_latch*);
 
 char* progScanner(char*);
 char** regNumberConverter(char*);
@@ -112,21 +100,18 @@ int mystrcmp(char*,char*);
 char functGet(char**);
 void ifIdFlush();
 int alu(int,int,char);
+void initRegTest();
 
 double ifUtil, idUtil, exUtil, memUtil, wbUtil;
 
 int main (int argc, char *argv[]){
-	printf("blue baby blue\n");
 	// LAT
-// struct if_id_latch *if_id = malloc(sizeof(struct if_id_latch));
-// struct id_ex_latch *id_ex = malloc(sizeof(struct id_ex_latch));
-// struct ex_mem_latch *ex_mem = malloc(sizeof(struct ex_mem_latch));
-// struct mem_wb_latch *mem_wb = malloc(sizeof(struct mem_wb_latch));
+ 	struct if_id_latch *if_id = malloc(sizeof(struct if_id_latch));
+	struct id_ex_latch *id_ex = malloc(sizeof(struct id_ex_latch));
+	struct ex_mem_latch *ex_mem = malloc(sizeof(struct ex_mem_latch));
+	struct mem_wb_latch *mem_wb = malloc(sizeof(struct mem_wb_latch));
 	int sim_mode=0;//mode flag, 1 for single-cycle, 0 for batch
-	int c,m,n;
 	int i;//for loop counter
-	long mips_reg[REG_NUM];
-	long pgm_c=0;//program counter
 	long sim_cycle=0;//simulation cycle counter
 	//define your own counter for the usage of each pipeline stage here
 	fflush(stdout);
@@ -173,45 +158,91 @@ int main (int argc, char *argv[]){
 		exit(0);
 	}
 	//initialize registers and program counter
-	if(sim_mode==1){
-		for (i=0;i<REG_NUM;i++){
-			mips_reg[i]=0;
-		}
-	}
+	// if(sim_mode==1){
+	// 	for (i=0;i<REG_NUM;i++){
+	// 		mips_reg[i]=0;
+	// 	}
+	// }
 	
 	// Code by Timothy Gerstel, Jennifer Feng, and Jonathan A
 	for(i = 0; i < REG_NUM; i++){
-		regs[i] = 0; //Initialize value to 0
-	//	regs[i].wait = false; //Initialize wait (to write) flag to false
+		mips_regs[i].value = 0; //Initialize value to 0
+		mips_regs[i].wait = false; //Initialize wait (to access) flag to false
 	}
 	char *buffer = malloc(sizeof(char) * 128);
+	i = 0;
 	while(fgets(buffer, 128, input) != NULL){
 		char* line = progScanner(buffer);
 		//puts("SUCCESS: Scan line");
 		char** data = regNumberConverter(line);
 		//test(data);
 		struct Instr *ins = parser(data);
+		instrMem[i++] = *ins;
 		//puts("SUCCESS: Generate data array");
 		//struct Instr *ins = parser(data);
 		//free(line);
-		printf("cycle: %ld ",sim_cycle);
-		if(sim_mode==1){
-			for (i=1;i<REG_NUM;i++){
-				printf("%ld  ",mips_reg[i]);
-			}
-		}
-		printf("%ld\n",pgm_c);
-		printf("press ENTER to continue\n");
-		fflush(stdout);
-
-		while(getchar() != '\n');
-		pgm_c+=4;
-		sim_cycle+=1;
 		test_counter++;
 		free(data);
 		//free(ins);
 	}
 	free(buffer);
+	if_id->ins.op = 0;
+	if_id->ins.rs = 0;
+	if_id->ins.rt = 0;
+	if_id->ins.rd = 0;
+	if_id->ins.imm = 0;
+	//if_id->ins.funct = 0;
+	if_id->cycles = 0;
+
+	id_ex->op = 0;
+	id_ex->r1 = 0;
+	id_ex->r2 = 0;
+	id_ex->r_write = 0;
+	id_ex->memAdd = 0;
+	id_ex->aluOp = '+';
+	id_ex->branch = false;
+	id_ex->cycles = 0;
+
+	ex_mem->op = 0;
+	ex_mem->rd = 0;
+	ex_mem->out = 0;
+	ex_mem->branch = false;
+	ex_mem->cycles = 0;
+	// ex_mem->cycles = 0;
+
+	mem_wb->op = 0;
+	mem_wb->rd = 0;
+	mem_wb->out = 0;
+
+	initRegTest();
+
+	while(true){
+		if(WB(mem_wb)){
+			if(M(ex_mem, mem_wb)){
+				if(EX(id_ex, ex_mem)){
+					if(ID(if_id, id_ex)){
+						if(IF(if_id)){
+							pgm_c += 4;
+						}
+					}
+				}
+			}
+		} else {
+			break;
+		}
+		printf("cycle: %ld ",sim_cycle);
+		if(sim_mode==1){
+			for (i=1;i<REG_NUM;i++){
+				printf("%d  ",mips_regs[i].value);
+			}
+		}
+		printf("%d\n",pgm_c);
+		printf("press ENTER to continue\n");
+		fflush(stdout);
+
+		while(getchar() != '\n');
+		sim_cycle+=1;
+	}
 
 	if(sim_mode==0){
 		fprintf(output,"program name: %s\n",argv[5]);
@@ -222,9 +253,9 @@ int main (int argc, char *argv[]){
 		
 		fprintf(output,"register values ");
 		for (i=1;i<REG_NUM;i++){
-			fprintf(output,"%ld  ",mips_reg[i]);
+			fprintf(output,"%d  ", mips_regs[i].value);
 		}
-		fprintf(output,"%ld\n",pgm_c);
+		fprintf(output,"%d\n",pgm_c);
 	
 	}
 	//close input and output files at the end of the simulation
@@ -233,13 +264,25 @@ int main (int argc, char *argv[]){
 	return 0;
 }
 
+void initRegTest(){
+	// lw $t0, 4($s4)      # $t0 = d[1] 
+	// lw $t1,, 0($s1)      # $t1 = a
+	// lw $t2,  0($s2)      # $t2 = b
+	// mips_regs[20].value = 5;
+	// mips_regs[17].value = 2;
+	// mips_regs[28].value = 3;
+	int i;
+	for(i = 0; i < REG_NUM; i++){
+		mips_regs[i].value = 1;
+	}
+}
+
 char* progScanner(char *instr){
 	int i, j=0; //Loop counters
 	int delCount = 0, whitespace = 0; //Misc counters
 	char* buffer = malloc(sizeof(char) * 32); //Buffer
 	if(strcmp(instr, "haltSimulation") == 0){
-		printf("HALTING\n");
-		exit(0);
+		return "haltSimulation\0";
 	}
 	for(i = 0; instr[i] != '\0'; i++){
 		if(i == 0 && instr[i] =='#'){
@@ -274,7 +317,11 @@ char** regNumberConverter(char* line){
 	for(i = 0; i < 6; i++){
 		buffer[i] = (char*) malloc(sizeof(char) * 8);
 	}
-	printf("rNC(): %s\n", line);
+	//printf("rNC(): %s\n", line);
+	if(!strcmp(line, "haltSimulation")){
+		strcpy(buffer[0], "haltSimulation");
+		return buffer;
+	}
 	if(strcmp(line, "comment") == 0){
 		//printf("rNC(): Comment detected\n");
 		strcpy(buffer[0], "comment");
@@ -297,10 +344,10 @@ char** regNumberConverter(char* line){
 			buffer[++i] = strtok(NULL, " ()");
 		}
 	}
-	printf("rNC(): Buffer:\n");
-	for(i = 0; buffer[i] != NULL && i < 6; i++){
-		printf("%d\t%s\n", i, buffer[i]);
-	}
+	// printf("rNC(): Buffer:\n");
+	// for(i = 0; buffer[i] != NULL && i < 6; i++){
+	// 	printf("%d\t%s\n", i, buffer[i]);
+	// }
 	return buffer;
 }
 
@@ -410,7 +457,7 @@ char* rncHelper(char *token){
 	if(!strcmp(cpy, "ra")){
 		snprintf(convert, sizeof(convert), "$%d%c", 31, '\0');
 	}
-	printf("rncHelper() out: %s\n", convert);
+	//printf("rncHelper() out: %s\n", convert);
 	free(cpy);
 	return convert;
 }
@@ -438,26 +485,28 @@ struct Instr *parser(char **data){
 	for(i = 0; i < sizeof(opNames)/sizeof(char*); i++){
 		if(mystrcmp(data[0], opNames[i]) == 0){
 			check = 1;
-			parsed->op = opVals[i];// if deosnt work make opvalue array to go through
-			printf("parser(): opCode: %u\n", parsed->op);
+			parsed->op = (Opcode)i;// if deosnt work make opvalue array to go through
+			//printf("parser(): opCode: %u\n", parsed->op);
 			switch(parsed->op){
 				case 0 :
+				case 2 :
+				case 3 :
 					if(data[1][0]=='$')parsed->rd = atoi(data[1] + 1);
 					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					if(data[3][0]=='$')parsed->rt = atoi(data[3] + 1);
 					parsed->imm = 0;
 					parsed->funct=functGet(data);
 					break;
-				case 0x8 :
+				case 1 :
 					if(data[1][0]=='$')parsed->rt = atoi(data[1] + 1);
 					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					parsed->imm = atoi(data[3]);
 					parsed->rd = 0;
 					parsed->funct =0;
 					break;
-				case 0x4 :
-				case 0x23 :
-				case 0X2B :
+				case 4 :
+				case 5 :
+				case 6 :
 					if(data[1][0]=='$')parsed->rt = atoi(data[1] + 1);
 					if(data[3][0]=='$')parsed->rs = atoi(data[3] + 1);
 					parsed->imm = atoi(data[2]);
@@ -465,22 +514,23 @@ struct Instr *parser(char **data){
 					parsed->rd = 0;
 					parsed->funct=0;
 					break;
-				case 1 :
+				case 7 :
+				case 8 :
 					parsed->rd = 0;
 					parsed->rs = 0;
 					parsed->rt = 0;
 					parsed->imm = 0;
 					parsed->funct = 0;
+					break;
 				default:
 					break;
 			}
-			printf("parser(): rd: %d\n", parsed->rd);
-			printf("parser(): rs: %d\n", parsed->rs);
-			printf("parser(): rt: %d\n", parsed->rt);
-			printf("parser(): imm: %d\n", parsed->imm);
+			// printf("parser(): rd: %d\n", parsed->rd);
+			// printf("parser(): rs: %d\n", parsed->rs);
+			// printf("parser(): rt: %d\n", parsed->rt);
+			// printf("parser(): imm: %d\n", parsed->imm);
 		}
 		opc++;
-// >>>>>>> e3be477fba19b177bfa0219583a208626c6a8de1
 	}
 	if(check==0)printf("parser(): illegal opCode: %s\n",data[0]);
 	return parsed;
@@ -499,122 +549,240 @@ char functGet(char** opCode){
 	if(mystrcmp(operation[0],"add")==0) return '+';
 	if(mystrcmp(operation[0],"sub")==0) return '-';
 	if(mystrcmp(operation[0],"mult")==0) return '*';
-}
- // struct if_id{
-	// int funct; // instruction corresponding to op
-	// int rs; // instruction read 1
-	// int rt; // instrction read 2
-	// int rd; //destination reg
-	// Opcode op; // opcode of what to carry out
- // }
-
-void ifIdFlush(){ // flush/ reinitialize if_id after
-	if_id->valid=false;
-	if_id->funct=0;
-	if_id->rs=0;
-	if_id->rt=0;
-	if_id->rd=0;
-	if_id->op=1; // if op=comment same as no op
-}
-void IF(){ //get instruction save info to latch
-if(fetch==false){
- 	struct Instr instruction=InstrMem[program_counter];
- 	if_id->funct=instruction.funct;
-	if_id->rs=instruction.rs;
-	if_id->rt=instruction.rt;
-	if_id->rd=instruction.rd;
-	if_id->op=instruction.op;
-	if_id->imm=instruction.imm;
-	if_id->valid=true;
-	++program_counter;
-}
-}
-void ID(){
-if ((if_id->valid)!=true) IF();
-id_ex->op=if_id->op;
-if((if_id->op)==0x4){
-	ifIdFlush();
-	fetch=false;
-	id_ex->branch=true;	
-	id_ex->r1=(regs[if_id->rs]);
-	id_ex->r2=(regs[if_id->rt]);
-	id_ex->aluOp=0;
-	id_ex->rdi=0;
-	id_ex->memAdd=if_id->imm;
-}
-else id_ex->branch=false;
-
-if ((if_id->op)==0)
-{
-	id_ex->r1=(regs[if_id->rs]);
-	id_ex->r2=(regs[if_id->rt]);
-	id_ex->rdi=if_id->rd;
-	id_ex->aluOp=if_id->funct;
-	id_ex->memAdd=0;
-}
-else id_ex->r2=0;
-
-if((if_id->op)==0x8){
-	id_ex->r1=(regs[if_id->rs]);
-	id_ex->rdi=if_id->rt;
-	id_ex->aluOp='+';
-	id_ex->r2=if_id->imm;
-	id_ex->memAdd=0;
-}else{ 
-	id_ex->aluOp=0;
-	id_ex->r1=0;
+	return ' ';
 }
 
-if(((if_id->op)==0x23) ||((if_id->op)==0x2B)){
-	id_ex->rdi=if_id->rt;
-	id_ex->memAdd=(regs[if_id->rs])+(if_id->imm);
-}
-id_ex->valid=true;
-}
-
-
-void EX(){
-int aluOutput=alu((id_ex->r1),(id_ex->r2),(id_ex->aluOp));
-if ((id_ex->valid)!=true) ID();	
-	ex_mem->op=id_ex->op;
-if(id_ex->op=0x4){
-	ex_mem->branch=true;
-	ex_mem->read=0;
-	ex_mem->out=0;
-	ex_mem->memAdd=0;
-	if(aluOutput==0){
-		program_counter+=id_ex->memAdd;
-	}
-	return;
-}else ex_mem->branch=false;
-
-if( (id_ex->op=0) ||(id_ex->op=0x8)){
-	ex_mem->memAdd=id_ex->rdi;
-	ex_mem->out=aluOutput;
-	ex_mem->read=0;
-}
-
-if(id_ex->op=0x23){
-	ex_mem->memAdd=id_ex->memAdd;
-	ex_mem->out=id_ex->rdi;
-	ex_mem->read=0;
-}
-
-}
-
-
-int alu(int val1, int val2,char op){
-	int aluOut=0;
-switch(op){
-	case'+':{
-		aluOut=val1+val2;
-	}
-	case'-':{
-		aluOut=val1-val2;
-	}
-	case'*':{
-		aluOut=val1*val2;
+bool IF(struct if_id_latch *latch){ //get instruction save info to latch
+	//puts("IF");
+ 	struct Instr instruction = instrMem[pgm_c / 4];
+ 	if(instruction.op == 8){
+ 		latch->ins = instruction;
+ 		return false;
+ 	}
+ 	ifUtil++;
+ 	if(latch->cycles == 0){
+ 		latch->cycles = c;
+ 	}
+ 	latch->cycles--;
+ 	if(latch->cycles == 0){
+ 		latch->ins = instruction;
+ 		return true;
+ 	} else {
+	 	return false;
 	}
 }
-return aluOut;
+
+bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
+	//puts("ID");
+	if(pipe->ins.op == 8){
+		latch->op = 8;
+		latch->r1 = 0;
+		latch->r2 = 0;
+		latch->r_write = 0;
+		latch->memAdd = 0;
+		return false;
+	}
+	idUtil++;
+	bool data2;
+	switch(pipe->ins.op){
+		case 0 :
+		case 2 :
+		case 3 :
+		case 4 :
+		case 6 :
+			data2 = true;
+			break;
+		case 1 :
+		case 7 :
+		case 8 :
+		case 5:
+			data2 = false;
+			break;
+	}
+	if(!mips_regs[pipe->ins.rs].wait){
+		latch->op = pipe->ins.op;
+		latch->r1 = mips_regs[pipe->ins.rs].value;
+		latch->r2 = data2 ? mips_regs[pipe->ins.rt].value : 0;
+		//puts("1");
+		if (latch->op == 0 || latch->op == 2 || latch->op == 3){
+			latch->r_write = pipe->ins.rd;
+			latch->aluOp = pipe->ins.funct;
+			latch->memAdd = 0;
+			latch->imm = 0;
+		}
+		//puts("2");
+		if(latch->op == 1){ //addi $rt $s imm
+			latch->r_write = pipe->ins.rt;
+			latch->aluOp = '+';
+			latch->memAdd = 0;
+			latch->imm = pipe->ins.imm;
+		}
+		if(latch->op == 5){
+			latch->r_write = pipe->ins.rt;
+			latch->memAdd = pipe->ins.rs;
+			latch->imm = pipe->ins.imm;
+		}
+		if(latch->op == 6){
+			latch->r_write = 0;
+			latch->memAdd = pipe->ins.rs;
+			latch->imm = pipe->ins.imm;
+		}
+		//puts("3");
+		if(latch->op == 4){
+			//puts("BEQ");
+			// ifIdFlush();
+			latch->branch = true;
+			//latch->aluOp = 0;
+			latch->r_write = 0;
+			latch->memAdd = pipe->ins.imm;
+			//return false;
+		} else { 
+			//puts("NOT BEQ");
+			latch->branch=false;
+		}
+		if(latch->r_write != 0){
+			mips_regs[latch->r_write].wait = true;
+		}
+		return true;
+	} else {
+		//NOP
+		latch->op = 0;
+		latch->r1 = 0;
+		latch->r2 = 0;
+		latch->r_write = 0;
+		latch->imm = 0;
+		latch->memAdd = 0;
+		return false;
+	}
+}
+
+
+bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
+	//puts("EX");
+	if(pipe->op == 8){
+		latch->op = 8;
+		latch->out = 0;
+		latch->rd = 0;
+		latch->branch = false;
+		return false;
+	}
+	exUtil++;
+
+	if(pipe->cycles == 0){
+		printf("Cycle choice: %d\n", (pipe->op == 3) ? m : n);
+		pipe->cycles = (pipe->op == 3) ? m : n;
+	}
+	pipe->cycles--;
+	if(pipe->cycles == 0){
+		int aluOutput = alu((pipe->r1),(pipe->r2),(pipe->aluOp));
+		latch->op = pipe->op;
+		if(latch->op == 4){
+			latch->branch = true;
+			latch->out = 0;
+			if(aluOutput == 0){
+				pgm_c+=pipe->memAdd;
+			}
+		}else { 
+			latch->branch=false;
+		}
+		if(latch->op == 1){
+			latch->rd = pipe->r_write;
+			latch->out = pipe->r1 + pipe->imm;
+		}
+		if(latch->op == 0 || latch->op == 2 || latch->op == 3){
+			latch->rd = pipe->r_write;
+			latch->out = aluOutput;
+		}
+		if(latch->op == 5 || latch->op == 6){
+			latch->rd = pipe->r_write;
+			latch->out = pipe->memAdd + pipe->imm;
+		}
+		return true;
+	} else {
+		latch->op = 0;
+		latch->out = 0;
+		latch->rd = 0;
+		return false;
+	}
+}
+
+bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
+	//puts("MEM");
+	if(pipe->op == 8){
+		latch->op = 8;
+		latch->rd = 0;
+		latch->out = 0;
+		return false;
+	}
+	memUtil++;
+	if(pipe->cycles == 0){
+		printf("Mem cycles: %d\n", (pipe->op == 5 || pipe->op == 6) ? c : 1);
+		pipe->cycles = (pipe->op == 5 || pipe->op == 6) ? c : 1;
+	}
+	pipe->cycles--;
+	if(pipe->cycles == 0){
+		latch->op = pipe->op;
+		switch(latch->op){
+		case 5 :
+			latch->out = dataMem[pipe->out / 4];
+			latch->rd = pipe->rd;
+			break;
+		case 6 :
+			dataMem[pipe->out / 4] = pipe->rd;
+			latch->out = pipe->out;
+			break;
+		default:
+			latch->out = pipe->out;
+			latch->rd = pipe->rd;
+			break;
+		}
+		return true;
+	} else {
+		latch->op = 0;
+		latch->rd = 0;
+		latch->out = 0;
+		return false;
+	}
+}
+
+bool WB(struct mem_wb_latch* pipe){
+	//puts("WB");
+	if(pipe->op == 8){
+		return false;
+	}
+	wbUtil++;
+	switch(pipe->op){
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+		case 5:
+			if(pipe->rd != 0){
+				puts("WRITING BACK");
+				mips_regs[pipe->rd].value = pipe->out;
+				mips_regs[pipe->rd].wait = false;
+			}
+			break;
+		default:
+			break;
+	}
+	return true;
+}
+
+
+int alu(int val1, int val2, char op){
+	switch(op){
+		case'+':
+			return val1+val2;
+			break;
+		case'-':
+			return val1-val2;
+			break;
+		case'*':
+			return val1*val2;
+			break;
+		default:
+			return 0;
+			break;
+	}
 }
