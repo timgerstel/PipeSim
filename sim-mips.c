@@ -242,12 +242,12 @@ int main (int argc, char *argv[]){
 			for (i=1;i<REG_NUM;i++){
 				printf("%d  ",mips_regs[i].value);
 			}
-		}
-		printf("%d\n",pgm_c);
-		printf("press ENTER to continue\n");
-		fflush(stdout);
+			printf("%d\n",pgm_c);
+			printf("press ENTER to continue\n");
+			fflush(stdout);
 
-		while(getchar() != '\n');
+			while(getchar() != '\n');
+		}
 		sim_cycle+=1;
 	}
 
@@ -272,12 +272,6 @@ int main (int argc, char *argv[]){
 }
 
 void initRegTest(){
-	// lw $t0, 4($s4)      # $t0 = d[1] 
-	// lw $t1,, 0($s1)      # $t1 = a
-	// lw $t2,  0($s2)      # $t2 = b
-	// mips_regs[20].value = 5;
-	// mips_regs[17].value = 2;
-	// mips_regs[28].value = 3;
 	int i;
 	for(i = 0; i < REG_NUM; i++){
 		mips_regs[i].value = 1;
@@ -572,6 +566,12 @@ bool IF(struct if_id_latch *latch){ //get instruction save info to latch
  		printf("Current Instruction Op: %d\n", latch->ins.op);
  		return true;
  	} else {
+ 		latch->ins.op = 0;
+ 		latch->ins.rs = 0;
+ 		latch->ins.rt = 0;
+ 		latch->ins.rd = 0;
+ 		latch->ins.imm = 0;
+ 		latch->ins.funct = ' ';
 	 	return false;
 	}
 }
