@@ -635,13 +635,13 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 				break;
 			case 5:
 				latch->r_write = pipe->ins.rt;
-				printf("ID (lw): Write mem data to $%d\n", latch->r_write);
+				printf("ID (lw): Write mem data[%d+%d] to reg[$%d]\n",mips_regs[pipe->ins.rs].value, pipe->ins.imm, latch->r_write);
 				latch->imm = pipe->ins.imm;
 				latch->aluOp = ' ';
 				latch->memAdd = pipe->ins.rs;
 				break;
 			case 6:
-				latch->r_write = pipe->ins.rt;
+				latch->r_write = mips_regs[pipe->ins.rt].value;
 				latch->imm = pipe->ins.imm;
 				latch->aluOp = ' ';
 				latch->memAdd = pipe->ins.rs;
@@ -723,10 +723,13 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 				}
 				break;
 			case 5:
-			case 6:
+				printf("%mem adresss = dsfsdfsdfdsfsdfsdfdsf   %d\n",pipe->r1+pipe->imm );
+				latch->out = pipe->r1+pipe->imm;
 				latch->rd = pipe->r_write;
-				latch->out = pipe->memAdd;
-				latch->imm = pipe->imm;
+				break;
+			case 6:
+				latch->rd = pipe->r1+pipe->imm;
+				latch->out = pipe->r_write;
 				break;
 			default:
 				break;
@@ -760,13 +763,13 @@ bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
 		printf("Mem op: %d\n", latch->op);
 		switch(latch->op){
 		case 5 :
-			latch->out = dataMem[(pipe->out + pipe->imm)];
+			latch->out = dataMem[(pipe->out)];
 			latch->rd = pipe->rd;
-			printf("Mem (lw): loading %d to $%d\n", latch->out, latch->rd);
+			printf("Mem (lw): loading %d from m[%d]to $%d\n", latch->out,pipe->out, latch->rd);
 			break;
 		case 6 :
-			printf("Saving $%d to %d\n", pipe->rd, (pipe->out + pipe->imm));
-			dataMem[(pipe->out + pipe->imm)] = mips_regs[pipe->rd].value;
+			printf("Saving %d to M[%d]\n", pipe->out, pipe->rd);
+			dataMem[pipe->rd] = pipe->out;
 			//latch->out = 0;
 			//latch->rd = 0;
 			break;
