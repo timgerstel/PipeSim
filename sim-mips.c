@@ -182,9 +182,9 @@ int main (int argc, char *argv[]){
 		//puts("SUCCESS: Generate data array");
 		//struct Instr *ins = parser(data);
 		//free(line);
-		test_counter++;
+		//test_counter++;
 		free(data);
-		//free(ins);
+		free(ins);
 	}
 	puts("INS MEM OPS:");
 	for(i = 0; i < MEM; i++){
@@ -294,12 +294,11 @@ char* progScanner(char *instr){
 			if(instr[i] == '(') delCount++;
 			if(instr[i] == ')') delCount--;
 			if(instr[i] == '#') break;
-			if(j < 32 && instr[i] != ','){
+			if(j < 32 && instr[i] != ',' && instr[i] != '\n'){
 				buffer[j] = instr[i];
 				if(whitespace > 2){
 					buffer[j-1] = '\0';
-				} else 
-				if(whitespace < 2){
+				} else if(whitespace < 2){
 					j++;
 				}
 			}
@@ -309,7 +308,7 @@ char* progScanner(char *instr){
 		printf("Delimiter mismatch");
 		exit(0);
 	}
-	//printf("%s\n", buffer);
+	printf("progScanner(): %s\n", buffer);
 	return buffer;
 }
 
@@ -321,146 +320,135 @@ char** regNumberConverter(char* line){
 	}
 	//printf("rNC(): %s\n", line);
 	if(!strcmp(line, "haltSimulation")){
-		strcpy(buffer[0], "haltSimulation");
+		strcpy(buffer[0], "haltSimulation\0");
 		return buffer;
 	}
 	if(strcmp(line, "comment") == 0){
 		//printf("rNC(): Comment detected\n");
-		strcpy(buffer[0], "comment");
+		strcpy(buffer[0], "comment\0");
 		return buffer;
 	} else {
 		i = 0;
 		buffer[0] = strtok(line, " ()");
 		while(buffer[i] != NULL && i < 6){
-			//char *token = buffer[i];
 			if(buffer[i][0] == '$'){
-				//printf("rNC(): Previous element: %s\n", buffer[i]);
-				char* reg = buffer[i] + 1;
+				printf("rNC(): Previous element: %s\n", buffer[i] + 1);
 				char* replaced = rncHelper(buffer[i] + 1);
-				//puts(replaced);
-				//printf("rNC(): Replacement: %s\n", replaced);
-				//buffer[i] = rncHelper(buffer[i] + 1);
-				buffer[i] = replaced;
-				//printf("rNC(): Current element: %s\n", buffer[i]);
+				printf("rNC(): Replacement: %s\n", replaced);
+				strcpy(buffer[i], replaced);
+				free(replaced);
 			}
 			buffer[++i] = strtok(NULL, " ()");
 		}
 	}
-	// printf("rNC(): Buffer:\n");
-	// for(i = 0; buffer[i] != NULL && i < 6; i++){
-	// 	printf("%d\t%s\n", i, buffer[i]);
-	// }
+	 printf("rNC(): Buffer:\n");
+	 for(i = 0; buffer[i] != NULL && i < 6; i++){
+	 	printf("%d\t%s\n", i, buffer[i]);
+	 }
 	return buffer;
 }
 
 char* rncHelper(char *token){
-	//printf("rncHelper() arg: %s\n", token);
 	int i, j;
 	char* convert = malloc(sizeof(char) * 6);
-	char* cpy = malloc(1 + strlen(token));
-	for(i = 0; i < strlen(token); i++){
-		cpy[i] = token[i];
-	}
-	cpy[i] = '\0';
+	printf("rncHelper() arg: %s\n", token);
 	//this is quarks fault not mine, go bark up the ECE departments tree if you want a for loop
-	if(!strcmp(cpy, "zero")){
+	if(!strcmp(token, "zero")){
 		snprintf(convert, sizeof(convert), "$%d%c", 0, '\0');
 	}
-	if(!strcmp(cpy, "at")){
+	if(!strcmp(token, "at")){
 		snprintf(convert, sizeof(convert), "$%d%c", 1, '\0');
 	}
-	if(!strcmp(cpy, "v0")){
+	if(!strcmp(token, "v0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 2, '\0');
 	}
-	if(!strcmp(cpy, "v1")){
+	if(!strcmp(token, "v1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 3, '\0');
 	}
-	if(!strcmp(cpy, "a0")){
+	if(!strcmp(token, "a0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 4, '\0');
 	}
-	if(!strcmp(cpy, "a1")){
+	if(!strcmp(token, "a1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 5, '\0');
 	}
-	if(!strcmp(cpy, "a2")){
+	if(!strcmp(token, "a2")){
 		snprintf(convert, sizeof(convert), "$%d%c", 6, '\0');
 	}
-	if(!strcmp(cpy, "a3")){
+	if(!strcmp(token, "a3")){
 		snprintf(convert, sizeof(convert), "$%d%c", 7, '\0');
 	}
-	if(!strcmp(cpy, "t0")){
+	if(!strcmp(token, "t0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 8, '\0');
 	}
-	if(!strcmp(cpy, "t1")){
+	if(!strcmp(token, "t1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 9, '\0');
 	}
-	if(!strcmp(cpy, "t2")){
+	if(!strcmp(token, "t2")){
 		snprintf(convert, sizeof(convert), "$%d%c", 10, '\0');
 	}
-	if(!strcmp(cpy, "t3")){
+	if(!strcmp(token, "t3")){
 		snprintf(convert, sizeof(convert), "$%d%c", 11, '\0');
 	}
-	if(!strcmp(cpy, "t4")){
+	if(!strcmp(token, "t4")){
 		snprintf(convert, sizeof(convert), "$%d%c", 12, '\0');
 	}
-	if(!strcmp(cpy, "t5")){
+	if(!strcmp(token, "t5")){
 		snprintf(convert, sizeof(convert), "$%d%c", 13, '\0');
 	}
-	if(!strcmp(cpy, "t6")){
+	if(!strcmp(token, "t6")){
 		snprintf(convert, sizeof(convert), "$%d%c", 14, '\0');
 	}
-	if(!strcmp(cpy, "t7")){
+	if(!strcmp(token, "t7")){
 		snprintf(convert, sizeof(convert), "$%d%c", 15, '\0');
 	}
-	if(!strcmp(cpy, "s0")){
+	if(!strcmp(token, "s0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 16, '\0');
 	}
-	if(!strcmp(cpy, "s1")){
+	if(!strcmp(token, "s1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 17, '\0');
 	}
-	if(!strcmp(cpy, "s2")){
+	if(!strcmp(token, "s2")){
 		snprintf(convert, sizeof(convert), "$%d%c", 18, '\0');
 	}
-	if(!strcmp(cpy, "s3")){
+	if(!strcmp(token, "s3")){
 		snprintf(convert, sizeof(convert), "$%d%c", 19, '\0');
 	}
-	if(!strcmp(cpy, "s4")){
+	if(!strcmp(token, "s4")){
 		snprintf(convert, sizeof(convert), "$%d%c", 20, '\0');
 	}
-	if(!strcmp(cpy, "s5")){
+	if(!strcmp(token, "s5")){
 		snprintf(convert, sizeof(convert), "$%d%c", 21, '\0');
 	}
-	if(!strcmp(cpy, "s6")){
+	if(!strcmp(token, "s6")){
 		snprintf(convert, sizeof(convert), "$%d%c", 22, '\0');
 	}
-	if(!strcmp(cpy, "s7")){
+	if(!strcmp(token, "s7")){
 		snprintf(convert, sizeof(convert), "$%d%c", 23, '\0');
 	}
-	if(!strcmp(cpy, "t8")){
+	if(!strcmp(token, "t8")){
 		snprintf(convert, sizeof(convert), "$%d%c", 24, '\0');
 	}
-	if(!strcmp(cpy, "t9")){
+	if(!strcmp(token, "t9")){
 		snprintf(convert, sizeof(convert), "$%d%c", 25, '\0');
 	}
-	if(!strcmp(cpy, "k0")){
+	if(!strcmp(token, "k0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 26, '\0');
 	}
-	if(!strcmp(cpy, "k1")){
+	if(!strcmp(token, "k1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 27, '\0');
 	}
-	if(!strcmp(cpy, "gp")){
+	if(!strcmp(token, "gp")){
 		snprintf(convert, sizeof(convert), "$%d%c", 28, '\0');
 	}
-	if(!strcmp(cpy, "sp")){
+	if(!strcmp(token, "sp")){
 		snprintf(convert, sizeof(convert), "$%d%c", 29, '\0');
 	}
-	if(!strcmp(cpy, "fp")){
+	if(!strcmp(token, "fp")){
 		snprintf(convert, sizeof(convert), "$%d%c", 30, '\0');
 	}
-	if(!strcmp(cpy, "ra")){
+	if(!strcmp(token, "ra")){
 		snprintf(convert, sizeof(convert), "$%d%c", 31, '\0');
 	}
-	//printf("rncHelper() out: %s\n", convert);
-	free(cpy);
 	return convert;
 }
 
@@ -496,6 +484,7 @@ struct Instr *parser(char **data){
 					if(data[1][0]=='$')parsed->rd = atoi(data[1] + 1);
 					if(data[2][0]=='$')parsed->rs = atoi(data[2] + 1);
 					if(data[3][0]=='$')parsed->rt = atoi(data[3] + 1);
+					printf("RD:%d\tRS:%d\tRT:%d\n", parsed->rd, parsed->rs, parsed->rt);
 					parsed->imm = 0;
 					parsed->funct=functGet(data);
 					break;
@@ -585,7 +574,7 @@ bool IF(struct if_id_latch *latch){ //get instruction save info to latch
 bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 	//puts("ID");
 	if(pipe->ins.op == 8){
-		latch->op = pipe->ins.op;
+		latch->op = 8;
 		latch->r1 = 0;
 		latch->r2 = 0;
 		latch->r_write = 0;
@@ -715,6 +704,7 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 			case 3:
 				latch->rd = pipe->r_write;
 				latch->out = aluOutput;
+				printf("EX (mul): aluOutput: %d\n", latch->out);
 				latch->imm = 0;
 				break;
 			case 1:
@@ -739,9 +729,6 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 				latch->imm = pipe->imm;
 				break;
 			default:
-				latch->out = 0;
-				latch->rd = 0;
-				latch->imm = 0;
 				break;
 		}
 		return true;
@@ -818,8 +805,6 @@ bool WB(struct mem_wb_latch* pipe){
 		default:
 			break;
 	}
-	pipe->rd = 0;
-	pipe->out = 0;
 	return true;
 }
 
@@ -833,6 +818,7 @@ int alu(int val1, int val2, char op){
 			return val1-val2;
 			break;
 		case'*':
+			printf("ALU: multiplying %d * %d\n", val1, val2);
 			return val1*val2;
 			break;
 		default:
