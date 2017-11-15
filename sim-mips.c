@@ -45,8 +45,8 @@ struct Instr{
 
 struct id_ex_latch{
 	Opcode op;
-	int r1; //read data 1
-	int r2; //read data 2
+	int r1; //rs
+	int r2; //rt
 	int r_write; //write register
 	int imm;
 	int memAdd; // memory address use for lw&sw
@@ -58,6 +58,7 @@ struct ex_mem_latch{
 	Opcode op;
  	int rd;
  	int out; //alu output
+ 	int imm;
 	int cycles;
 	bool branch; //if branching
 };
@@ -508,9 +509,11 @@ struct Instr *parser(char **data){
 				case 4 :
 				case 5 :
 				case 6 :
+					puts("Parsing LW/SW Instruction");
 					if(data[1][0]=='$')parsed->rt = atoi(data[1] + 1);
 					if(data[3][0]=='$')parsed->rs = atoi(data[3] + 1);
 					parsed->imm = atoi(data[2]);
+					printf("RT: $%d\tRS: $%d\tIMM: %d\n", parsed->rt, parsed->rs, parsed->imm);
 					//if(isdigit(atoi(data[2][0])))
 					parsed->rd = 0;
 					parsed->funct=0;
@@ -545,16 +548,19 @@ char functGet(char** opCode){
 	char **operation = opCode;
 	if(mystrcmp(operation[0],"add")==0) return '+';
 	if(mystrcmp(operation[0],"sub")==0) return '-';
-	if(mystrcmp(operation[0],"mult")==0) return '*';
+	if(mystrcmp(operation[0],"mul")==0) return '*';
 	return ' ';
 }
 
 bool IF(struct if_id_latch *latch){ //get instruction save info to latch
 	//puts("IF");
  	struct Instr instruction = instrMem[pgm_c / 4];
- 	if(instruction.op == 8 || instruction.op == 7){
+ 	if(instruction.op == 8){
  		latch->ins = instruction;
  		return false;
+ 	}
+ 	if(instruction.op == 7){
+ 		return true;
  	}
  	ifUtil++;
  	if(latch->cycles == 0){
@@ -563,7 +569,7 @@ bool IF(struct if_id_latch *latch){ //get instruction save info to latch
  	latch->cycles--;
  	if(latch->cycles == 0){
  		latch->ins = instruction;
- 		printf("Current Instruction Op: %d\n", latch->ins.op);
+ 		printf("IF op: %d\n", latch->ins.op);
  		return true;
  	} else {
  		latch->ins.op = 0;
@@ -578,7 +584,7 @@ bool IF(struct if_id_latch *latch){ //get instruction save info to latch
 
 bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 	//puts("ID");
-	if(pipe->ins.op == 8 || pipe->ins.op == 7){
+	if(pipe->ins.op == 8){
 		latch->op = pipe->ins.op;
 		latch->r1 = 0;
 		latch->r2 = 0;
@@ -593,18 +599,19 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 		case 2 :
 		case 3 :
 		case 4 :
+		case 5 :
 			data2 = true;
 			break;
 		case 1 :
 		case 7 :
 		case 8 :
-		case 5 :
 		case 6 :
 			data2 = false;
 			break;
 	}
 	if(!mips_regs[pipe->ins.rs].wait){
 		latch->op = pipe->ins.op;
+		printf("ID op: %d\n", latch->op);
 		latch->r1 = mips_regs[pipe->ins.rs].value;
 		latch->r2 = data2 ? mips_regs[pipe->ins.rt].value : 0;
 		//puts("1");
@@ -636,26 +643,27 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 					//puts("NOT BEQ");
 					latch->branch=false;
 				}
+				break;
 			case 5:
 				latch->r_write = pipe->ins.rt;
+				printf("ID (lw): Write mem data to $%d\n", latch->r_write);
 				latch->imm = pipe->ins.imm;
 				latch->aluOp = ' ';
 				latch->memAdd = pipe->ins.rs;
 				break;
 			case 6:
-				latch->r_write = 0;
+				latch->r_write = pipe->ins.rt;
 				latch->imm = pipe->ins.imm;
 				latch->aluOp = ' ';
 				latch->memAdd = pipe->ins.rs;
 				break;
 			case 7:
-				latch->op = 7;
 				latch->r1 = 0;
 				latch->r2 = 0;
 				latch->r_write = 0;
 				latch->imm = 0;
 				latch->memAdd = 0;
-				return false;
+				break;
 			default:
 				latch->op = 0;
 				latch->r1 = 0;
@@ -670,6 +678,12 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 		}
 		return true;
 	} else {
+		latch->op = 0;
+		latch->r1 = 0;
+		latch->r2 = 0;
+		latch->r_write=0;
+		latch->imm = 0;
+		latch->memAdd = 0;
 		return false;
 	}
 }
@@ -677,7 +691,7 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 
 bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 	//puts("EX");
-	if(pipe->op == 8 || pipe->op == 7){
+	if(pipe->op == 8){
 		latch->op = pipe->op;
 		latch->out = 0;
 		latch->rd = 0;
@@ -694,12 +708,14 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 	if(pipe->cycles == 0){
 		int aluOutput = alu((pipe->r1),(pipe->r2),(pipe->aluOp));
 		latch->op = pipe->op;
+		printf("EX op: %d\n", latch->op);
 		switch(latch->op){
 			case 0:
 			case 2:
 			case 3:
 				latch->rd = pipe->r_write;
 				latch->out = aluOutput;
+				latch->imm = 0;
 				break;
 			case 1:
 				latch->rd = pipe->r_write;
@@ -719,11 +735,13 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 			case 5:
 			case 6:
 				latch->rd = pipe->r_write;
-				latch->out = pipe->memAdd + pipe->imm;
+				latch->out = pipe->memAdd;
+				latch->imm = pipe->imm;
 				break;
 			default:
 				latch->out = 0;
 				latch->rd = 0;
+				latch->imm = 0;
 				break;
 		}
 		return true;
@@ -731,13 +749,14 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 		latch->op = 0;
 		latch->out = 0;
 		latch->rd = 0;
+		latch->imm = 0;
 		return false;
 	}
 }
 
 bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
 	//puts("MEM");
-	if(pipe->op == 8 || pipe->op == 7){
+	if(pipe->op == 8){
 		latch->op = pipe->op;
 		latch->rd = 0;
 		latch->out = 0;
@@ -751,14 +770,18 @@ bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
 	pipe->cycles--;
 	if(pipe->cycles == 0){
 		latch->op = pipe->op;
+		printf("Mem op: %d\n", latch->op);
 		switch(latch->op){
 		case 5 :
-			latch->out = dataMem[pipe->out / 4];
+			latch->out = dataMem[(pipe->out + pipe->imm)];
 			latch->rd = pipe->rd;
+			printf("Mem (lw): loading %d to $%d\n", latch->out, latch->rd);
 			break;
 		case 6 :
-			dataMem[pipe->out / 4] = pipe->rd;
-			latch->out = 0;
+			printf("Saving $%d to %d\n", pipe->rd, (pipe->out + pipe->imm));
+			dataMem[(pipe->out + pipe->imm)] = mips_regs[pipe->rd].value;
+			//latch->out = 0;
+			//latch->rd = 0;
 			break;
 		default:
 			latch->out = pipe->out;
@@ -775,10 +798,11 @@ bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
 }
 
 bool WB(struct mem_wb_latch* pipe){
-	if(pipe->op == 8 || pipe->op == 7){
+	if(pipe->op == 8){
 		return false;
 	}
 	wbUtil++;
+	printf("WB op: %d\n", pipe->op);
 	switch(pipe->op){
 		case 0:
 		case 1:
@@ -786,7 +810,7 @@ bool WB(struct mem_wb_latch* pipe){
 		case 3:
 		case 5:
 			if(pipe->rd != 0){
-				printf("WRITING BACK TO $%d\n", pipe->rd);
+				printf("WRITING %d TO $%d\n", pipe->out, pipe->rd);
 				mips_regs[pipe->rd].value = pipe->out;
 				mips_regs[pipe->rd].wait = false;
 			}
@@ -794,6 +818,8 @@ bool WB(struct mem_wb_latch* pipe){
 		default:
 			break;
 	}
+	pipe->rd = 0;
+	pipe->out = 0;
 	return true;
 }
 
