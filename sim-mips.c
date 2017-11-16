@@ -186,13 +186,6 @@ int main (int argc, char *argv[]){
 		free(data);
 		free(ins);
 	}
-	puts("INS MEM OPS:");
-	for(i = 0; i < MEM; i++){
-		printf("%d\n", instrMem[i].op);
-		if(instrMem[i].op == 8){
-			break;
-		}
-	}
 	free(buffer);
 	if_id->ins.op = 0;
 	if_id->ins.rs = 0;
@@ -238,12 +231,17 @@ int main (int argc, char *argv[]){
 		} else {
 			break;
 		}
-		printf("cycle: %ld ",sim_cycle);
+		printf("cycle: %ld\n",sim_cycle);
 		if(sim_mode==1){
+			printf("IF/ID INSTR: %s\n", opNames[if_id->ins.op]);
+			printf("ID/EX INSTR: %s\n", opNames[id_ex->op]); 
+			printf("EX/MEM INSTR: %s\n", opNames[ex_mem->op]); 
+			printf("MEM/WB INSTR: %s\n", opNames[mem_wb->op]); 
+			puts("MIPS Regs:");
 			for (i=1;i<REG_NUM;i++){
 				printf("%d  ",mips_regs[i].value);
 			}
-			printf("%d\n",pgm_c);
+			printf("pgm_c: %d\n",pgm_c);
 			printf("press ENTER to continue\n");
 			fflush(stdout);
 
@@ -318,7 +316,7 @@ char** regNumberConverter(char* line){
 	for(i = 0; i < 6; i++){
 		buffer[i] = (char*) malloc(sizeof(char) * 8);
 	}
-	//printf("rNC(): %s\n", line);
+	printf("rNC(): %s\n", line);
 	if(!strcmp(line, "haltSimulation")){
 		strcpy(buffer[0], "haltSimulation\0");
 		return buffer;
@@ -332,16 +330,16 @@ char** regNumberConverter(char* line){
 		buffer[0] = strtok(line, " ()");
 		while(buffer[i] != NULL && i < 6){
 			if(buffer[i][0] == '$'){
-				printf("rNC(): Previous element: %s\n", buffer[i] + 1);
+				//printf("rNC(): Previous element: %s\n", buffer[i] + 1);
 				char* replaced = rncHelper(buffer[i] + 1);
-				printf("rNC(): Replacement: %s\n", replaced);
-				strcpy(buffer[i], replaced);
-				free(replaced);
+				//printf("rNC(): Replacement: %s\n", replaced);
+				buffer[i] = replaced;
+				//free(replaced);
 			}
 			buffer[++i] = strtok(NULL, " ()");
 		}
 	}
-	 printf("rNC(): Buffer:\n");
+	 //printf("rNC(): Buffer:\n");
 	 for(i = 0; buffer[i] != NULL && i < 6; i++){
 	 	printf("%d\t%s\n", i, buffer[i]);
 	 }
@@ -351,102 +349,107 @@ char** regNumberConverter(char* line){
 char* rncHelper(char *token){
 	int i, j;
 	char* convert = malloc(sizeof(char) * 6);
-	printf("rncHelper() arg: %s\n", token);
+	char* cpy = malloc(1 + strlen(token));
+	for(i = 0; i < strlen(token); i++){
+		cpy[i] = token[i];
+	}
+	cpy[i] = '\0';
+	printf("rncHelper() arg: %s\n", cpy);
 	//this is quarks fault not mine, go bark up the ECE departments tree if you want a for loop
-	if(!strcmp(token, "zero")){
+	if(!strcmp(cpy, "zero")){
 		snprintf(convert, sizeof(convert), "$%d%c", 0, '\0');
 	}
-	if(!strcmp(token, "at")){
+	if(!strcmp(cpy, "at")){
 		snprintf(convert, sizeof(convert), "$%d%c", 1, '\0');
 	}
-	if(!strcmp(token, "v0")){
+	if(!strcmp(cpy, "v0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 2, '\0');
 	}
-	if(!strcmp(token, "v1")){
+	if(!strcmp(cpy, "v1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 3, '\0');
 	}
-	if(!strcmp(token, "a0")){
+	if(!strcmp(cpy, "a0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 4, '\0');
 	}
-	if(!strcmp(token, "a1")){
+	if(!strcmp(cpy, "a1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 5, '\0');
 	}
-	if(!strcmp(token, "a2")){
+	if(!strcmp(cpy, "a2")){
 		snprintf(convert, sizeof(convert), "$%d%c", 6, '\0');
 	}
-	if(!strcmp(token, "a3")){
+	if(!strcmp(cpy, "a3")){
 		snprintf(convert, sizeof(convert), "$%d%c", 7, '\0');
 	}
-	if(!strcmp(token, "t0")){
+	if(!strcmp(cpy, "t0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 8, '\0');
 	}
-	if(!strcmp(token, "t1")){
+	if(!strcmp(cpy, "t1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 9, '\0');
 	}
-	if(!strcmp(token, "t2")){
+	if(!strcmp(cpy, "t2")){
 		snprintf(convert, sizeof(convert), "$%d%c", 10, '\0');
 	}
-	if(!strcmp(token, "t3")){
+	if(!strcmp(cpy, "t3")){
 		snprintf(convert, sizeof(convert), "$%d%c", 11, '\0');
 	}
-	if(!strcmp(token, "t4")){
+	if(!strcmp(cpy, "t4")){
 		snprintf(convert, sizeof(convert), "$%d%c", 12, '\0');
 	}
-	if(!strcmp(token, "t5")){
+	if(!strcmp(cpy, "t5")){
 		snprintf(convert, sizeof(convert), "$%d%c", 13, '\0');
 	}
-	if(!strcmp(token, "t6")){
+	if(!strcmp(cpy, "t6")){
 		snprintf(convert, sizeof(convert), "$%d%c", 14, '\0');
 	}
-	if(!strcmp(token, "t7")){
+	if(!strcmp(cpy, "t7")){
 		snprintf(convert, sizeof(convert), "$%d%c", 15, '\0');
 	}
-	if(!strcmp(token, "s0")){
+	if(!strcmp(cpy, "s0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 16, '\0');
 	}
-	if(!strcmp(token, "s1")){
+	if(!strcmp(cpy, "s1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 17, '\0');
 	}
-	if(!strcmp(token, "s2")){
+	if(!strcmp(cpy, "s2")){
 		snprintf(convert, sizeof(convert), "$%d%c", 18, '\0');
 	}
-	if(!strcmp(token, "s3")){
+	if(!strcmp(cpy, "s3")){
 		snprintf(convert, sizeof(convert), "$%d%c", 19, '\0');
 	}
-	if(!strcmp(token, "s4")){
+	if(!strcmp(cpy, "s4")){
 		snprintf(convert, sizeof(convert), "$%d%c", 20, '\0');
 	}
-	if(!strcmp(token, "s5")){
+	if(!strcmp(cpy, "s5")){
 		snprintf(convert, sizeof(convert), "$%d%c", 21, '\0');
 	}
-	if(!strcmp(token, "s6")){
+	if(!strcmp(cpy, "s6")){
 		snprintf(convert, sizeof(convert), "$%d%c", 22, '\0');
 	}
-	if(!strcmp(token, "s7")){
+	if(!strcmp(cpy, "s7")){
 		snprintf(convert, sizeof(convert), "$%d%c", 23, '\0');
 	}
-	if(!strcmp(token, "t8")){
+	if(!strcmp(cpy, "t8")){
 		snprintf(convert, sizeof(convert), "$%d%c", 24, '\0');
 	}
-	if(!strcmp(token, "t9")){
+	if(!strcmp(cpy, "t9")){
 		snprintf(convert, sizeof(convert), "$%d%c", 25, '\0');
 	}
-	if(!strcmp(token, "k0")){
+	if(!strcmp(cpy, "k0")){
 		snprintf(convert, sizeof(convert), "$%d%c", 26, '\0');
 	}
-	if(!strcmp(token, "k1")){
+	if(!strcmp(cpy, "k1")){
 		snprintf(convert, sizeof(convert), "$%d%c", 27, '\0');
 	}
-	if(!strcmp(token, "gp")){
+	if(!strcmp(cpy, "gp")){
 		snprintf(convert, sizeof(convert), "$%d%c", 28, '\0');
 	}
-	if(!strcmp(token, "sp")){
+	if(!strcmp(cpy, "sp")){
 		snprintf(convert, sizeof(convert), "$%d%c", 29, '\0');
 	}
-	if(!strcmp(token, "fp")){
+	if(!strcmp(cpy, "fp")){
 		snprintf(convert, sizeof(convert), "$%d%c", 30, '\0');
 	}
-	if(!strcmp(token, "ra")){
+	if(!strcmp(cpy, "ra")){
 		snprintf(convert, sizeof(convert), "$%d%c", 31, '\0');
 	}
 	return convert;
@@ -548,17 +551,22 @@ bool IF(struct if_id_latch *latch){ //get instruction save info to latch
  		latch->ins = instruction;
  		return false;
  	}
- 	if(instruction.op == 7){
- 		return true;
- 	}
  	ifUtil++;
  	if(latch->cycles == 0){
  		latch->cycles = c;
  	}
+ 	if(instruction.op == 7){
+ 		if((pgm_c + 4) / 4 < MEM){
+ 			pgm_c +=4;
+ 			instruction = instrMem[pgm_c / 4];
+ 		}
+ 	}
  	latch->cycles--;
  	if(latch->cycles == 0){
  		latch->ins = instruction;
- 		printf("IF op: %d\n", latch->ins.op);
+ 		if(latch->ins.op == 5 || latch->ins.op == 6){
+ 			printf("IF(): Load/Save Parameters: RT: %d\t RS: %d\t IMM: %d\n", latch->ins.rt, latch->ins.rs, latch->ins.imm);
+ 		}
  		return true;
  	} else {
  		latch->ins.op = 0;
@@ -573,13 +581,14 @@ bool IF(struct if_id_latch *latch){ //get instruction save info to latch
 
 bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 	//puts("ID");
-	if(pipe->ins.op == 8){
-		latch->op = 8;
+	if(pipe->ins.op == 8 || pipe->ins.op == 7){
+		latch->op = (pipe->ins.op == 8) ? pipe->ins.op : 0;
 		latch->r1 = 0;
 		latch->r2 = 0;
 		latch->r_write = 0;
 		latch->memAdd = 0;
-		return false;
+		latch->cycles = 0;
+		return (pipe->ins.op == 7);
 	}
 	idUtil++;
 	bool data2;
@@ -600,7 +609,6 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 	}
 	if(!mips_regs[pipe->ins.rs].wait){
 		latch->op = pipe->ins.op;
-		printf("ID op: %d\n", latch->op);
 		latch->r1 = mips_regs[pipe->ins.rs].value;
 		latch->r2 = data2 ? mips_regs[pipe->ins.rt].value : 0;
 		//puts("1");
@@ -635,13 +643,14 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 				break;
 			case 5:
 				latch->r_write = pipe->ins.rt;
-				printf("ID (lw): Write mem data[%d+%d] to reg[$%d]\n",mips_regs[pipe->ins.rs].value, pipe->ins.imm, latch->r_write);
+				printf("ID (lw): Load dataMem[%d+%d] to reg[$%d]\n", pipe->ins.rs, pipe->ins.imm, latch->r_write);
 				latch->imm = pipe->ins.imm;
 				latch->aluOp = ' ';
 				latch->memAdd = pipe->ins.rs;
 				break;
 			case 6:
-				latch->r_write = mips_regs[pipe->ins.rt].value;
+				latch->r_write = pipe->ins.rt;
+				printf("ID (sw): Save dataMem[%d+%d] to reg[$%d]\n", pipe->ins.rs, pipe->ins.imm, latch->r_write);
 				latch->imm = pipe->ins.imm;
 				latch->aluOp = ' ';
 				latch->memAdd = pipe->ins.rs;
@@ -680,7 +689,7 @@ bool ID(struct if_id_latch *pipe, struct id_ex_latch *latch){
 
 bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 	//puts("EX");
-	if(pipe->op == 8){
+	if(pipe->op == 8 || pipe->op == 7){
 		latch->op = pipe->op;
 		latch->out = 0;
 		latch->rd = 0;
@@ -690,26 +699,27 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 	exUtil++;
 
 	if(pipe->cycles == 0){
-		printf("Cycle choice: %d\n", (pipe->op == 3) ? m : n);
+		printf("EX(): Execution Cycles: %d\n", (pipe->op == 3) ? m : n);
 		pipe->cycles = (pipe->op == 3) ? m : n;
 	}
 	pipe->cycles--;
 	if(pipe->cycles == 0){
 		int aluOutput = alu((pipe->r1),(pipe->r2),(pipe->aluOp));
 		latch->op = pipe->op;
-		printf("EX op: %d\n", latch->op);
 		switch(latch->op){
 			case 0:
 			case 2:
 			case 3:
 				latch->rd = pipe->r_write;
 				latch->out = aluOutput;
-				printf("EX (mul): aluOutput: %d\n", latch->out);
+				printf("EX() %s: aluOutput: %d\n", opNames[latch->op], latch->out);
 				latch->imm = 0;
 				break;
 			case 1:
 				latch->rd = pipe->r_write;
 				latch->out = alu(pipe->r1, pipe->imm, pipe->aluOp);
+				printf("EX() %s: aluOutput: %d\n", opNames[latch->op], latch->out);
+				latch->imm = 0;
 				break;
 			case 4:
 				if(latch->op == 4){
@@ -723,14 +733,10 @@ bool EX(struct id_ex_latch *pipe, struct ex_mem_latch *latch){
 				}
 				break;
 			case 5:
-				printf("%mem adresss = dsfsdfsdfdsfsdfsdfdsf   %d\n",pipe->r1+pipe->imm );
-				latch->out = pipe->r1+pipe->imm;
-				latch->rd = pipe->r_write;
-				break;
 			case 6:
-				latch->rd = pipe->r1+pipe->imm;
-				latch->out = pipe->r_write;
-				break;
+				printf("EX(): %mem adresss = %d\n",pipe->memAdd+pipe->imm);
+				latch->out = pipe->memAdd+pipe->imm;
+				latch->rd = pipe->r_write;
 			default:
 				break;
 		}
@@ -754,22 +760,27 @@ bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
 	}
 	memUtil++;
 	if(pipe->cycles == 0){
-		printf("Mem cycles: %d\n", (pipe->op == 5 || pipe->op == 6) ? c : 1);
-		pipe->cycles = (pipe->op == 5 || pipe->op == 6) ? c : 1;
+		printf("Mem(): Access cycles: %d\n", (pipe->op == 5 || pipe->op == 6) ? c : 1);
+		pipe->cycles = (pipe->op == 5 || pipe->op == 6) ? c : 1 ;
 	}
 	pipe->cycles--;
 	if(pipe->cycles == 0){
 		latch->op = pipe->op;
-		printf("Mem op: %d\n", latch->op);
 		switch(latch->op){
 		case 5 :
 			latch->out = dataMem[(pipe->out)];
 			latch->rd = pipe->rd;
-			printf("Mem (lw): loading %d from m[%d]to $%d\n", latch->out,pipe->out, latch->rd);
+			printf("Mem(): Loading %d from m[%d]to $%d\n", latch->out ,pipe->out, latch->rd);
 			break;
 		case 6 :
-			printf("Saving %d to M[%d]\n", pipe->out, pipe->rd);
-			dataMem[pipe->rd] = pipe->out;
+			dataMem[pipe->out] = mips_regs[pipe->rd].value;
+			long mask;
+			long memext;
+			mask=0xffff;
+			memext = (pipe->out & (mask << 16) >> 16);
+			printf("Mem(): Sign ext %ld\n", memext);
+			//assert((pipe->out & (mask << 16) >> 16) % 4 == 0);
+			printf("Mem(): Saving %d from $%d to M[%x]\n", mips_regs[pipe->rd].value, pipe->rd, pipe->out);
 			//latch->out = 0;
 			//latch->rd = 0;
 			break;
@@ -788,11 +799,10 @@ bool M(struct ex_mem_latch *pipe, struct mem_wb_latch *latch){
 }
 
 bool WB(struct mem_wb_latch* pipe){
-	if(pipe->op == 8){
+	if(pipe->op == 8 || pipe->op == 7){
 		return false;
 	}
 	wbUtil++;
-	printf("WB op: %d\n", pipe->op);
 	switch(pipe->op){
 		case 0:
 		case 1:
@@ -800,7 +810,7 @@ bool WB(struct mem_wb_latch* pipe){
 		case 3:
 		case 5:
 			if(pipe->rd != 0){
-				printf("WRITING %d TO $%d\n", pipe->out, pipe->rd);
+				printf("WB(): WRITING %d TO $%d\n", pipe->out, pipe->rd);
 				mips_regs[pipe->rd].value = pipe->out;
 				mips_regs[pipe->rd].wait = false;
 			}

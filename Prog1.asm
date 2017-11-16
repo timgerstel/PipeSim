@@ -1,5 +1,8 @@
 #Example Simulation File
 #C code: d[2] = d[1] + a*b;
+addi $t0, $t0, 56
+sw $t0, 0($s4)      #load a data address into s4
+addi $t0, $zero, 0
 addi $t0, $t0, 5
 sw $t0, 4($s4)      #initialize d[1]=5
 lw $t0, 4($s4)      #$t0 = d[1] 
